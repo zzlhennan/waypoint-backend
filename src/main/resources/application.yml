@@ -1,3 +1,22 @@
 spring:
   application:
     name: waypoint-backend
+  profiles:
+    # 默认激活 local：本地开发读 application-local.yml（真实 key，已被 git 忽略）
+    # 部署环境没有 local 文件时，自动回退到下面的 ${AMAP_KEY:} 环境变量
+    active: local
+
+# ===== 高德 API =====
+amap:
+  # 占位符：本地被 application-local.yml 覆盖；部署走环境变量 AMAP_KEY
+  # 绝不把真实 key 写进本文件（本文件入 git）
+  key: ${AMAP_KEY:}
+  base-url: https://restapi.amap.com
+
+# ===== 沿途业务参数（PRD v1.3 第 7 节，勿硬编码到 Java）=====
+along:
+  sample-interval-meters: 500       # 沿路线采样间隔
+  search-radius-meters: 500         # 采样点初始 POI 搜索半径
+  search-radius-retry-meters: 1000  # 搜不到时的重试半径（仅重试一次）
+  max-detour-meters: 1000           # 防御性硬过滤：POI 离主路超过此值丢弃
+  top-n: 3                          # 返回结果数量
