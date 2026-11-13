@@ -46,6 +46,7 @@ src/main/java/com/zzl/waypointbackend/
 - 外部调用（高德）统一收口到 `feignclient` 层，用 **Feign 声明式客户端**，业务代码不直接发 HTTP
 - 数据传输：入参 / 内部用 `dto`，返回给调用方用 `vo`
 - 业务错误抛 `BizException`，配合全局异常处理返回统一错误结构（400/404/502）
+- 候选 POI 必须按 id **去重**（采样圈重叠会重复）；`distanceToRouteMeters` 由 DetourCalculator 自算（≠高德 distance）；欧氏近似须先做**经纬度→米换算**（含 cos纬度）
 - MVP 串行调高德，接受 5-10s，不提前上并发
 
 ## 6. 开工前必读（先读后写）
@@ -75,4 +76,7 @@ src/main/java/com/zzl/waypointbackend/
 ## 9. 常见坑
 
 - 起点/终点定位用 **place/text**，**不要用 geocode**（对"奥森公园"报 30001）
+- **全站 v5 2.0**：定位/周边共用 `AmapV5PoiResponse`，路径共用 `AmapV5RouteResponse`
+- v5 **路径要坐标串必须传 `show_fields=polyline`**（默认 steps 无坐标）；**POI 要 `tel` 传 `show_fields=business`**（在 `poi.business.tel`，嵌套）
+- v5 城市入参是 **`region`/`city_limit`**（≠v3 `city`/`citylimit`，旧名兼容但用官方名）
 - Windows 控制台中文乱码是 GBK 显示问题，文件本身 UTF-8 正常，不用改文件
