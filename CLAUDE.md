@@ -68,12 +68,12 @@ src/main/java/com/zzl/waypointbackend/
 
 > 详细进度看 git log（一个功能一个 commit），本节**只维护"下一步"指针，不堆历史快照**。
 
-**下一步：第 3 步——`DetourCalculator`（纯几何 + 单测，不依赖高德、不联网）。**
+**下一步：第 4 步——`AlongService` + `AlongController`（把整条 `/along` 串起来，端到端打通）。**
 
 整体路线（顺序固定；每一步都先走第 3 节讨论流程，我说开始才写）：
 1. ~~`AmapProperties` / `AlongProperties`（读配置 + fail-fast）~~ ✅
 2. ~~高德定位封装（Feign，v5 place/text 已 Postman 实测调通）~~ ✅
-3. `DetourCalculator`（纯几何 + 单测，不依赖高德）
+3. ~~`DetourCalculator`（纯几何 + 单测，8 例全绿）~~ ✅
 4. `AlongService` + `AlongController`（串起 `/along`）
 
 ## 8. 红线（违反立刻停手问我）
