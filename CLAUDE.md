@@ -27,6 +27,7 @@ JDK 21 · Spring Boot 4.1.2（保持勿降）· Maven · 高德 API · 无前端
    - 只读类操作（`git status/log/diff/show`、读文件、全局搜索）正常做，禁令仅限"执行构建"与"git 写操作"；
    - 代码写完即止，编译验证、提交都由我本地完成，测出问题我直接拿报错来问你；
    - 提交仍遵循"一个功能一个 commit"，但动作由我执行，你不要替我提交。
+   - **每完成一个步骤，你要主动提醒我"这步做完了"，并给出建议的 commit 注释（message），由我来执行 add/commit/push。**
 
 ## 4. 目录结构与分层职责
 
@@ -50,6 +51,7 @@ src/main/java/com/zzl/waypointbackend/
 
 - 配置一律读 `along.*` / `amap.*`（`@ConfigurationProperties`），勿硬编码
 - 配置类统一用 Java `record` + 构造器绑定（`@ConfigurationProperties` + 类上 `@Validated`），字段不可变；启动类用 `@ConfigurationPropertiesScan` 扫描，校验注解（`@NotBlank`/`@Positive` 等）做启动期 fail-fast
+- Spring 组件（Controller/Service 等）依赖注入统一 `@RequiredArgsConstructor` + `private final` 字段（构造器注入），不用字段 `@Autowired`；POJO/DTO 用 Lombok `@Data`，不写样板 getter/setter
 - 外部调用（高德）统一收口到 `feignclient` 层，用 **Feign 声明式客户端**，业务代码不直接发 HTTP
 - 数据传输：入参 / 内部用 `dto`，返回给调用方用 `vo`
 - 业务错误抛 `BizException`，配合全局异常处理返回统一错误结构（400/404/502）
@@ -66,11 +68,11 @@ src/main/java/com/zzl/waypointbackend/
 
 > 详细进度看 git log（一个功能一个 commit），本节**只维护"下一步"指针，不堆历史快照**。
 
-**下一步：第 2 步——高德定位封装（Feign，先只做 v5 `place/text` 验证调通）。**（第 1 步配置类代码已完成，待开发者提交）
+**下一步：第 3 步——`DetourCalculator`（纯几何 + 单测，不依赖高德、不联网）。**
 
 整体路线（顺序固定；每一步都先走第 3 节讨论流程，我说开始才写）：
 1. ~~`AmapProperties` / `AlongProperties`（读配置 + fail-fast）~~ ✅
-2. 高德定位封装（Feign，先只做 place/text，验证高德能调通）
+2. ~~高德定位封装（Feign，v5 place/text 已 Postman 实测调通）~~ ✅
 3. `DetourCalculator`（纯几何 + 单测，不依赖高德）
 4. `AlongService` + `AlongController`（串起 `/along`）
 
