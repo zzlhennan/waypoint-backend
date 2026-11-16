@@ -9,11 +9,12 @@
 
 ## 2. 技术栈与包名
 
-JDK 21 · Spring Boot 4.1.2 · Maven · H2（文件模式）· 高德 API · 无前端（Postman 自测）
+JDK 21 · Spring Boot 4.1.2（保持勿降）· Maven · 高德 API · 无前端（Postman 自测）
 包名 `com.zzl.waypointbackend`（勿改）
-外部 HTTP 调用：**Feign（OpenFeign，声明式客户端）**，配 Spring Cloud **2025.1.x（Oakwood）**
-持久层：`mapper` 包先留空，MVP 不引 ORM 框架
-> Spring Boot **保持 4.1.2 不要降**（3.5 已临近 EOL，4.x 是当前主流）。加 Feign 依赖时引 Spring Cloud BOM，小版本号以官方对应表核对。
+
+**已在 pom（现状）**：`spring-boot-starter-web`、`spring-boot-starter-validation`、`spring-boot-starter-test`、H2（runtime，**MVP 预留未用**——mapper 留空、不引 ORM）。
+**计划引入（尚未加，到第 2 步才动 pom）**：外部 HTTP 用 **Feign（OpenFeign 声明式客户端）**，配 Spring Cloud **2025.1.x（Oakwood）BOM**；小版本号以官方对应表核对。
+> Spring Boot **保持 4.1.2 不要降**（3.5 已临近 EOL，4.x 是当前主流）。
 
 ## 3. 工作方式（最重要，先读这条）
 
@@ -21,6 +22,11 @@ JDK 21 · Spring Boot 4.1.2 · Maven · H2（文件模式）· 高德 API · 无
 2. **告诉我你的想法**：方案、思路、会影响哪些文件。
 3. **把待确定的事项都列出来跟我讨论**：选型、命名、边界、取舍，一个都别自己拍脑袋。
 4. **等我说「开始改代码」，才动手写代码**。在此之前只讨论、不新建/修改任何代码文件。
+5. **编译/构建与 git 由我（开发者）亲自操作，你只负责写/改代码**：
+   - 不主动执行 `mvn`/`mvnw` 等构建命令，不做 `git add/commit/push` 等任何 git 写操作；
+   - 只读类操作（`git status/log/diff/show`、读文件、全局搜索）正常做，禁令仅限"执行构建"与"git 写操作"；
+   - 代码写完即止，编译验证、提交都由我本地完成，测出问题我直接拿报错来问你；
+   - 提交仍遵循"一个功能一个 commit"，但动作由我执行，你不要替我提交。
 
 ## 4. 目录结构与分层职责
 
@@ -43,6 +49,7 @@ src/main/java/com/zzl/waypointbackend/
 ## 5. 编码约定
 
 - 配置一律读 `along.*` / `amap.*`（`@ConfigurationProperties`），勿硬编码
+- 配置类统一用 Java `record` + 构造器绑定（`@ConfigurationProperties` + 类上 `@Validated`），字段不可变；启动类用 `@ConfigurationPropertiesScan` 扫描，校验注解（`@NotBlank`/`@Positive` 等）做启动期 fail-fast
 - 外部调用（高德）统一收口到 `feignclient` 层，用 **Feign 声明式客户端**，业务代码不直接发 HTTP
 - 数据传输：入参 / 内部用 `dto`，返回给调用方用 `vo`
 - 业务错误抛 `BizException`，配合全局异常处理返回统一错误结构（400/404/502）
@@ -57,9 +64,12 @@ src/main/java/com/zzl/waypointbackend/
 
 ## 7. 当前进度与下一步
 
-已完成：骨架、依赖（web+H2）、`along.*` 配置、key 注入、包结构（10 个包）、文档体系（01需求/02高德/03接口）。
-建议推进顺序（**每一步都要先走第 3 节的讨论流程，我说开始才写**）：
-1. `AmapProperties` / `AlongProperties`（读配置）
+> 详细进度看 git log（一个功能一个 commit），本节**只维护"下一步"指针，不堆历史快照**。
+
+**下一步：第 2 步——高德定位封装（Feign，先只做 v5 `place/text` 验证调通）。**（第 1 步配置类代码已完成，待开发者提交）
+
+整体路线（顺序固定；每一步都先走第 3 节讨论流程，我说开始才写）：
+1. ~~`AmapProperties` / `AlongProperties`（读配置 + fail-fast）~~ ✅
 2. 高德定位封装（Feign，先只做 place/text，验证高德能调通）
 3. `DetourCalculator`（纯几何 + 单测，不依赖高德）
 4. `AlongService` + `AlongController`（串起 `/along`）
