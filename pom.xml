@@ -28,7 +28,22 @@
     </scm>
     <properties>
         <java.version>21</java.version>
+        <!-- Spring Cloud 2025.1.4 锁定 OpenFeign 5.0.4（GA）；其 Boot 基线为 4.0.9，项目为 4.1.2，
+             同代 Jakarta 体系兼容，构建后需以 dependency:tree 复核核心构件未被降级 -->
+        <spring-cloud.version>2025.1.4</spring-cloud.version>
     </properties>
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -39,6 +54,19 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!-- 高德 API 声明式客户端；版本由 Spring Cloud BOM 管理（OpenFeign 5.0.4） -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-openfeign</artifactId>
+        </dependency>
+
+        <!-- 简化 POJO 样板代码；版本由 Boot BOM 管理（1.18.48，支持 JDK21） -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
