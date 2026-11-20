@@ -1,0 +1,23 @@
+package com.zzl.waypointbackend.dto;
+
+import lombok.Data;
+
+/**
+ * 内部候选 POI：从高德 around 收集、去重后，附上算好的 distanceToRouteMeters。
+ * 仅在 service 内部流转，最终映射成 {@link com.zzl.waypointbackend.vo.PoiItem} 返回。
+ */
+@Data
+public class PoiCandidate {
+
+    /** 高德 POI id，用于去重 */
+    private String id;
+    private String name;
+    private String address;
+    private String location;
+    private String tel;
+    private String type;
+    private String adname;
+
+    /** 由 DetourCalculator 算出：到主路折线的最近直线距离（米） */
+    private double distanceToRouteMeters;
+}
