@@ -45,6 +45,10 @@
 - **绝不把真实 key 写进任何入 git 的文件**
 - 建议：高德控制台为 key 开启 **IP 白名单**，防止泄露被盗用
 
+> **调用时 key 如何注入**：Java 方法签名里**不带 key**，由 `AmapKeyInterceptor`（Feign `RequestInterceptor`）统一在每个请求 URL 后追加 `?key=...`。
+> 该拦截器通过 `AmapFeignConfig` **以 per-client 方式绑定到 AmapClient**（`@FeignClient(configuration=...)`），
+> **故意不给 `AmapFeignConfig` 加 `@Configuration`**——否则会被组件扫描扫到主上下文，拦截器变成全局，污染未来其他 Feign 客户端。
+
 ---
 
 ## 3. 接口清单（全 v5 2.0）
@@ -55,7 +59,7 @@
 |---|---|
 | 用途 | 把「奥森公园」「望京SOHO」等地名转为经纬度 |
 | URL | `GET https://restapi.amap.com/v5/place/text` |
-| 关键参数 | `keywords={地名}`、**`region={城市}`**、**`city_limit=true`**、`key` |
+| 关键参数 | `keywords={地名}`、**`region={城市}`**、**`city_limit=true`**（`key` 由拦截器自动注入） |
 | 返回 | `pois[]`，取 **`pois[0].location`**（`"经度,纬度"`） |
 | 失败处理 | `pois` 为空 → 业务 400「找不到起点/终点」 |
 
@@ -69,7 +73,7 @@
 |---|---|
 | 用途 | 在每个采样点附近搜「咖啡」等 POI |
 | URL | `GET https://restapi.amap.com/v5/place/around` |
-| 关键参数 | `keywords={关键词}`、`location={经度,纬度}`、`radius={米}`、`types`、`key` |
+| 关键参数 | `keywords={关键词}`、`location={经度,纬度}`、`radius={米}`、`types`（`key` 由拦截器自动注入） |
 | 字段控制 | `show_fields`：默认返回 `name`/`address`/`location`/`type`/`typecode`/`adname`/`pname`/`cityname`/`distance` 等（**`type`/`adname` 默认就有**）；加 **`show_fields=business`** 才多 `business` 子对象 |
 | 返回 | `pois[]`；⚠️ **`tel`/`rating`/`cost`/营业时间 在 `poi.business.*`（嵌套子对象，非平铺）**，需 `show_fields=business` |
 | 备注 | 半径由 `along.search-radius-meters` 驱动；搜不到按 PRD 扩到 1km 重试一次 |
@@ -80,7 +84,7 @@
 |---|---|
 | 用途 | A→B 路径坐标串（算法采样的基础） |
 | URL | `GET https://restapi.amap.com/v5/direction/{driving\|walking\|bicycling}`（按 mode 选） |
-| 关键参数 | `origin={经度,纬度}`、`destination={经度,纬度}`、`key`；驾车可加 `strategy` |
+| 关键参数 | `origin={经度,纬度}`、`destination={经度,纬度}`；驾车可加 `strategy`（`key` 由拦截器自动注入） |
 | **⚠️ polyline 必传** | **默认 steps 只有 `instruction`/`orientation`/`step_distance`/`road_name`，没有坐标串！** 必须传 **`show_fields=polyline`** 才返回 `polyline` |
 | 返回 | `route.paths[]`（默认 3 条备选，`count=3`），取 `paths[0].steps[].polyline`，解析成 `List<Point>` |
 

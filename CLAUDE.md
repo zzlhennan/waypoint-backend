@@ -12,8 +12,11 @@
 JDK 21 · Spring Boot 4.1.2（保持勿降）· Maven · 高德 API · 无前端（Postman 自测）
 包名 `com.zzl.waypointbackend`（勿改）
 
-**已在 pom（现状）**：`spring-boot-starter-web`、`spring-boot-starter-validation`、`spring-boot-starter-test`、H2（runtime，**MVP 预留未用**——mapper 留空、不引 ORM）。
-**计划引入（尚未加，到第 2 步才动 pom）**：外部 HTTP 用 **Feign（OpenFeign 声明式客户端）**，配 Spring Cloud **2025.1.x（Oakwood）BOM**；小版本号以官方对应表核对。
+**pom 现状（已全部引入）**：
+- `spring-boot-starter-web` / `spring-boot-starter-validation` / `spring-boot-starter-test`
+- `spring-cloud-starter-openfeign`（配 Spring Cloud **2025.1.4** BOM，锁定 OpenFeign 5.0.4）
+- `lombok`（provided，POJO 样板代码）
+- `h2`（runtime，**MVP 预留未用**——mapper 留空、不引 ORM）
 > Spring Boot **保持 4.1.2 不要降**（3.5 已临近 EOL，4.x 是当前主流）。
 
 ## 3. 工作方式（最重要，先读这条）
@@ -63,18 +66,21 @@ src/main/java/com/zzl/waypointbackend/
 1. `docs/01-需求文档.md` —— 需求基线：用户故事、验收标准、算法口径、决策记录
 2. `docs/02-高德API.md` —— 高德对接：接口、参数、key 管理、错误码（**开头有 MVP 接口速查表**）
 3. `docs/03-接口文档.md` —— 概要设计 + 详细设计：接口字段定义、类设计、配置项、异常处理
+4. `docs/04-MVP收尾.md` —— 当前阶段的任务清单（edge case / category透传 / README）
+5. `docs/Attachment01-绕路距离算法.md` —— DetourCalculator 数学原理（按需查阅）
+6. `docs/Attachment02-高德POI分类与编码（中英文）_V1.06_20230208.xlsx` —— 官方类型编码表（按需查阅）
 
 ## 7. 当前进度与下一步
 
 > 详细进度看 git log（一个功能一个 commit），本节**只维护"下一步"指针，不堆历史快照**。
 
-**下一步：第 4 步——`AlongService` + `AlongController`（把整条 `/along` 串起来，端到端打通）。**
+**下一步：按 `docs/04-MVP收尾.md` 推进——edge case 真实验证（400/404/502）→ category 透传 + DictUtils 字典 + strategy 透传 → 写 README。**
 
 整体路线（顺序固定；每一步都先走第 3 节讨论流程，我说开始才写）：
 1. ~~`AmapProperties` / `AlongProperties`（读配置 + fail-fast）~~ ✅
 2. ~~高德定位封装（Feign，v5 place/text 已 Postman 实测调通）~~ ✅
 3. ~~`DetourCalculator`（纯几何 + 单测，8 例全绿）~~ ✅
-4. `AlongService` + `AlongController`（串起 `/along`）
+4. ~~`AlongService` + `AlongController`（串起 `/along`，Postman 端到端已通）~~ ✅
 
 ## 8. 红线（违反立刻停手问我）
 
@@ -91,4 +97,6 @@ src/main/java/com/zzl/waypointbackend/
 - **全站 v5 2.0**：定位/周边共用 `AmapV5PoiResponse`，路径共用 `AmapV5RouteResponse`
 - v5 **路径要坐标串必须传 `show_fields=polyline`**（默认 steps 无坐标）；**POI 要 `tel` 传 `show_fields=business`**（在 `poi.business.tel`，嵌套）
 - v5 城市入参是 **`region`/`city_limit`**（≠v3 `city`/`citylimit`，旧名兼容但用官方名）
+- **分类参数用 `category=冷饮`（传名字）**，后端 `DictUtils.getValue()` 翻译成 types 编码；不要让前端/用户传裸编码
+- 咖啡厅 types 编码是 **`050500`**（不是 `050300`，那是快餐厅），完整编码表见 Attachment02 xlsx
 - Windows 控制台中文乱码是 GBK 显示问题，文件本身 UTF-8 正常，不用改文件
