@@ -88,7 +88,7 @@ public class AlongServiceImpl implements AlongService {
     /** ① 定位：地名 → 坐标，取 pois[0].location；空 → 400 */
     private Point locate(String name, String city, String label) {
         AmapV5PoiResponse resp = amapClient.searchText(name, city, Boolean.TRUE);
-        if (!isSuccess(resp) || resp.getPois() == null || resp.getPois().isEmpty()) {
+        if (isFailure(resp) || resp.getPois() == null || resp.getPois().isEmpty()) {
             throw BizException.badRequest("找不到" + label + "：" + name);
         }
         return parsePoint(resp.getPois().get(0).getLocation());
@@ -103,7 +103,7 @@ public class AlongServiceImpl implements AlongService {
             case "bicycling" -> amapClient.bicycling(origin, destination, SHOW_FIELDS_POLYLINE);
             default -> amapClient.driving(origin, destination, null, SHOW_FIELDS_POLYLINE);
         };
-        if (!isSuccess(resp)) {
+        if (isFailure(resp)) {
             throw BizException.upstream("路线规划失败，请稍后重试");
         }
         return resp.getRoutePoints();
@@ -114,7 +114,7 @@ public class AlongServiceImpl implements AlongService {
                                Map<String, PoiCandidate> candidates) {
         AmapV5PoiResponse resp = amapClient.around(
                 toAmapLocation(sample), keyword, radius, null, SHOW_FIELDS_BUSINESS);
-        if (!isSuccess(resp) || resp.getPois() == null) {
+        if (isFailure(resp) || resp.getPois() == null) {
             return;
         }
         for (AmapV5PoiResponse.Poi p : resp.getPois()) {
@@ -148,7 +148,8 @@ public class AlongServiceImpl implements AlongService {
             PoiItem item = new PoiItem();
             item.setName(c.getName());
             item.setAddress(c.getAddress());
-            item.setDistanceToRouteMeters(c.getDistanceToRouteMeters());
+            // 算法内部用 double 保证排序精度，对外取整成"米"，避免 12.273972520623792 这种长尾
+            item.setDistanceToRouteMeters(Math.round(c.getDistanceToRouteMeters()));
             item.setLocation(c.getLocation());
             item.setTel(c.getTel());
             item.setType(c.getType());
@@ -170,11 +171,12 @@ public class AlongServiceImpl implements AlongService {
         return p.longitude() + "," + p.latitude();
     }
 
-    private static boolean isSuccess(AmapV5PoiResponse resp) {
-        return resp != null && "1".equals(resp.getStatus());
+    /** 高德调用是否失败：响应为空或 status != "1" */
+    private static boolean isFailure(AmapV5PoiResponse resp) {
+        return resp == null || !"1".equals(resp.getStatus());
     }
 
-    private static boolean isSuccess(AmapV5RouteResponse resp) {
-        return resp != null && "1".equals(resp.getStatus());
+    private static boolean isFailure(AmapV5RouteResponse resp) {
+        return resp == null || !"1".equals(resp.getStatus());
     }
 }
