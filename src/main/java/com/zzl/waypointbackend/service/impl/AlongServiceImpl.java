@@ -56,10 +56,12 @@ public class AlongServiceImpl implements AlongService {
 
         // ④ 每个采样点按初始半径搜 POI；④.1 按 id 去重
         // category（分类名）经 DictUtils 翻译成 types 编码；查不到为 null → 纯 keyword 模糊搜
+        // 每个 around 调用后 sleep 限速：免费版单 key 3 QPS，多 key 轮询 + 间隔 400ms 避免突发超限(10021)
         String types = DictUtils.getValue(query.getCategory());
         Map<String, PoiCandidate> candidates = new LinkedHashMap<>();
         for (Point sample : samples) {
             collectAround(sample, query.getKeyword(), types, radius, candidates);
+            sleepBeforeNext();
         }
 
         // ④.2 仅当全程没搜到任何候选时，用 retry 半径整体补搜一轮（避免每个采样点都重试导致 QPS 翻倍超限）
@@ -67,6 +69,7 @@ public class AlongServiceImpl implements AlongService {
             for (Point sample : samples) {
                 collectAround(sample, query.getKeyword(), types,
                         alongProperties.searchRadiusRetryMeters(), candidates);
+                sleepBeforeNext();
             }
         }
 
@@ -196,5 +199,18 @@ public class AlongServiceImpl implements AlongService {
 
     private static boolean isFailure(AmapV5RouteResponse resp) {
         return resp == null || !"1".equals(resp.getStatus());
+    }
+
+    /**
+     * around 调用之间限速：免费版单 key 3 QPS，多 key 轮询 + 每次间隔 200ms，
+     * 把突发请求摊到几秒内，避免触发 10021 QPS 超限。
+     * 被中断时提前结束等待（不继续 sleep），向上恢复中断状态。
+     */
+    private static void sleepBeforeNext() {
+        try {
+            Thread.sleep(200);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 }
