@@ -1,6 +1,6 @@
 package com.zzl.waypointbackend.exception;
 
-import lombok.Data;
+import feign.FeignException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -34,6 +34,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
                 "code", 400,
                 "message", msg
+        ));
+    }
+
+    /** Feign 调用异常（断网/超时/高德返回非 2xx）→ 502，与"我们自己代码 bug"(500) 区分开 */
+    @ExceptionHandler(FeignException.class)
+    public ResponseEntity<Map<String, Object>> handleFeign(FeignException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(Map.of(
+                "code", 502,
+                "message", "地图服务暂时不可用"
         ));
     }
 

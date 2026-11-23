@@ -10,6 +10,7 @@ import com.zzl.waypointbackend.feignclient.dto.AmapV5PoiResponse;
 import com.zzl.waypointbackend.feignclient.dto.AmapV5RouteResponse;
 import com.zzl.waypointbackend.service.AlongService;
 import com.zzl.waypointbackend.utils.DetourCalculator;
+import com.zzl.waypointbackend.utils.DictUtils;
 import com.zzl.waypointbackend.vo.AlongResponse;
 import com.zzl.waypointbackend.vo.PoiItem;
 import lombok.RequiredArgsConstructor;
@@ -44,24 +45,27 @@ public class AlongServiceImpl implements AlongService {
         Point start = locate(query.getStart(), query.getCity(), "起点");
         Point end = locate(query.getEnd(), query.getCity(), "终点");
 
-        // ② 路线规划（按 mode 选接口）→ 折线
-        List<Point> route = routeByMode(mode, start, end);
+        // ② 路线规划（按 mode 选接口）→ 折线；strategy 仅 driving 生效，其他 mode 忽略
+        List<Point> route = routeByMode(mode, start, end, query.getStrategy());
         if (route.size() < 2) {
             throw BizException.upstream("路线规划返回为空，请稍后重试");
         }
 
-        // ③ 沿折线采样（起点 + 每 500m 中间点 + 终点）
+        // ③ 沿折线采样（起点 + 每 sample-interval 中间点 + 终点）
         List<Point> samples = DetourCalculator.sampleRoute(route, alongProperties.sampleIntervalMeters());
 
-        // ④ 每个采样点独立搜 POI：本采样点无结果才扩到 retry 半径重试一次（不影响其他采样点）；
-        // ④.5 按 id 去重
+        // ④ 每个采样点按初始半径搜 POI；④.1 按 id 去重
+        // category（分类名）经 DictUtils 翻译成 types 编码；查不到为 null → 纯 keyword 模糊搜
+        String types = DictUtils.getValue(query.getCategory());
         Map<String, PoiCandidate> candidates = new LinkedHashMap<>();
         for (Point sample : samples) {
-            int before = candidates.size();
-            collectAround(sample, query.getKeyword(), query.getCity(), radius, candidates);
-            if (candidates.size() == before) {
-                // 本采样点初始半径无新增候选 → 用 retry 半径再试一次
-                collectAround(sample, query.getKeyword(), query.getCity(),
+            collectAround(sample, query.getKeyword(), types, radius, candidates);
+        }
+
+        // ④.2 仅当全程没搜到任何候选时，用 retry 半径整体补搜一轮（避免每个采样点都重试导致 QPS 翻倍超限）
+        if (candidates.isEmpty()) {
+            for (Point sample : samples) {
+                collectAround(sample, query.getKeyword(), types,
                         alongProperties.searchRadiusRetryMeters(), candidates);
             }
         }
@@ -85,23 +89,31 @@ public class AlongServiceImpl implements AlongService {
         return buildResponse(query, mode, filtered);
     }
 
-    /** ① 定位：地名 → 坐标，取 pois[0].location；空 → 400 */
+    /**
+     * ① 定位：地名 → 坐标，取 pois[0].location。
+     * 区分两类失败：高德调用本身失败(502) vs 高德成功但查不到地名(400)。
+     */
     private Point locate(String name, String city, String label) {
         AmapV5PoiResponse resp = amapClient.searchText(name, city, Boolean.TRUE);
-        if (isFailure(resp) || resp.getPois() == null || resp.getPois().isEmpty()) {
+        if (isFailure(resp)) {
+            // status != "1"：key 错/限流/高德内部错 → 外部服务故障，不是用户地名的问题
+            throw BizException.upstream("地图服务暂时不可用");
+        }
+        if (resp.getPois() == null || resp.getPois().isEmpty()) {
+            // status=1 但 pois 空：地名查不到 → 入参问题
             throw BizException.badRequest("找不到" + label + "：" + name);
         }
         return parsePoint(resp.getPois().get(0).getLocation());
     }
 
-    /** ② 按 mode 调对应路径接口 */
-    private List<Point> routeByMode(String mode, Point start, Point end) {
+    /** ② 按 mode 调对应路径接口；strategy 仅 driving 透传，walking/bicycling 无此参数 */
+    private List<Point> routeByMode(String mode, Point start, Point end, Integer strategy) {
         String origin = toAmapLocation(start);
         String destination = toAmapLocation(end);
         AmapV5RouteResponse resp = switch (mode) {
             case "walking" -> amapClient.walking(origin, destination, SHOW_FIELDS_POLYLINE);
             case "bicycling" -> amapClient.bicycling(origin, destination, SHOW_FIELDS_POLYLINE);
-            default -> amapClient.driving(origin, destination, null, SHOW_FIELDS_POLYLINE);
+            default -> amapClient.driving(origin, destination, strategy, SHOW_FIELDS_POLYLINE);
         };
         if (isFailure(resp)) {
             throw BizException.upstream("路线规划失败，请稍后重试");
@@ -109,12 +121,18 @@ public class AlongServiceImpl implements AlongService {
         return resp.getRoutePoints();
     }
 
-    /** ④ 单个采样点周边搜，结果按 id 并入候选 map（去重） */
-    private void collectAround(Point sample, String keyword, String city, int radius,
+    /** ④ 单个采样点周边搜，结果按 id 并入候选 map（去重）；types 为 null 时不加分类过滤 */
+    private void collectAround(Point sample, String keyword, String types, int radius,
                                Map<String, PoiCandidate> candidates) {
+        String location = toAmapLocation(sample);
         AmapV5PoiResponse resp = amapClient.around(
-                toAmapLocation(sample), keyword, radius, null, SHOW_FIELDS_BUSINESS);
-        if (isFailure(resp) || resp.getPois() == null) {
+                location, keyword, radius, types, SHOW_FIELDS_BUSINESS);
+        if (isFailure(resp)) {
+            // 高德调用失败（key 错/限流）→ 外部故障，不能当成"这个采样点没店"
+            throw BizException.upstream("地图服务暂时不可用");
+        }
+        if (resp.getPois() == null) {
+            // status=1 但 pois 空：这个采样点半径内真没店 → 正常情况，跳过即可
             return;
         }
         for (AmapV5PoiResponse.Poi p : resp.getPois()) {

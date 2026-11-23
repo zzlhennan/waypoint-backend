@@ -1,5 +1,7 @@
 package com.zzl.waypointbackend.dto;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
@@ -34,4 +36,15 @@ public class AlongQuery {
     /** 采样点搜索半径（米）；不传用配置 along.search-radius-meters */
     @Positive(message = "radius 必须为正数")
     private Integer radius;
+
+    /**
+     * 分类名（如「冷饮」「咖啡厅」），后端经 DictUtils 翻译成 types 编码再透传。
+     * 不校验枚举值——查不到就 null 兜底走纯 keyword 模糊搜（不报错）。
+     */
+    private String category;
+
+    /** 驾车算路策略，仅 driving 生效：0速度/1费用/2距离/3不走高速；不传用高德默认(0) */
+    @Min(value = 0, message = "strategy 只能是 0-3")
+    @Max(value = 3, message = "strategy 只能是 0-3")
+    private Integer strategy;
 }

@@ -18,8 +18,8 @@ amap:
 
 # ===== 沿途业务参数（PRD v1.3 第 7 节，勿硬编码到 Java）=====
 along:
-  sample-interval-meters: 500       # 沿路线采样间隔
+  sample-interval-meters: 1000      # 沿路线采样间隔（调大以减少请求数，避免触发高德 QPS 限流）
   search-radius-meters: 500         # 采样点初始 POI 搜索半径
-  search-radius-retry-meters: 1000  # 搜不到时的重试半径（仅重试一次）
+  search-radius-retry-meters: 1000  # 搜不到时的重试半径（仅整体空结果时补搜一轮）
   max-detour-meters: 1000           # 防御性硬过滤：POI 离主路超过此值丢弃
   top-n: 3                          # 返回结果数量
