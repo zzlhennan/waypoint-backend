@@ -174,11 +174,11 @@ public final class DictUtils {
 
 ## 完成勾选
 
-- [ ] 1.1 开放参数：types(category) 透传 + DictUtils + strategy 透传
-- [ ] 2.1 定位失败 → 400（A/B/C 三个用例）
-- [ ] 2.2 沿途无 POI → 404
-- [ ] 2.3 高德故障 → 502（A/B 两个用例）
-- [ ] 3.0 README
+- [x] 1.1 开放参数：types(category) 透传 + DictUtils + strategy 透传
+- [x] 2.1 定位失败 → 400（A/B/C 三个用例）
+- [x] 2.2 沿途无 POI → 404
+- [x] 2.3 高德故障 → 502（A/B 两个用例）
+- [x] 3.0 README
 
 ---
 
