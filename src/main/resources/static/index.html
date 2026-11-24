@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>沿途</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 16px;
+    color: #222;
+    background: #f7f7f7;
+    padding: 16px;
+    max-width: 640px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 20px; padding: 8px 0 16px; }
+
+  /* ── 输入区 ── */
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 14px; color: #666; margin-bottom: 4px; }
+  .field input[type=text] {
+    width: 100%; height: 44px; padding: 0 12px;
+    border: 1px solid #ccc; border-radius: 8px; background: #fff; font-size: 16px;
+  }
+
+  /* ── 分类 tab ── */
+  .tabs-title { font-size: 14px; color: #666; margin: 16px 0 8px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tabs button {
+    height: 36px; padding: 0 14px; border-radius: 18px;
+    border: 1px solid #ccc; background: #fff; font-size: 14px; cursor: pointer;
+  }
+  .tabs button.active { background: #2b6cb0; border-color: #2b6cb0; color: #fff; }
+
+  /* ── 方式 / 数量 ── */
+  .row { display: flex; gap: 16px; margin-top: 16px; align-items: center; flex-wrap: wrap; }
+  .row .group-label { font-size: 14px; color: #666; }
+  .row label { font-size: 14px; margin-right: 4px; }
+  .row select { height: 36px; padding: 0 8px; border: 1px solid #ccc; border-radius: 8px; background: #fff; }
+
+  /* ── 主按钮 ── */
+  #searchBtn {
+    width: 100%; height: 48px; margin-top: 20px;
+    background: #2b6cb0; color: #fff; border: none; border-radius: 8px;
+    font-size: 17px; cursor: pointer;
+  }
+  #searchBtn:disabled { background: #9bb8d4; cursor: not-allowed; }
+  #loadingHint { font-size: 13px; color: #888; text-align: center; margin-top: 8px; min-height: 18px; }
+
+  /* ── 结果区 ── */
+  #resultTitle { font-size: 16px; color: #666; margin: 20px 0 12px; }
+  .card {
+    background: #fff; border-radius: 8px; padding: 14px; margin-bottom: 12px;
+    border: 1px solid #eee;
+  }
+  .card .name { font-weight: bold; font-size: 16px; margin-bottom: 6px; }
+  .card .dist { font-size: 14px; color: #2b6cb0; margin-bottom: 4px; }
+  .card .addr { font-size: 14px; color: #555; margin-bottom: 6px; }
+  .card .links a { font-size: 14px; color: #2b6cb0; margin-right: 16px; text-decoration: none; }
+
+  #error { padding: 16px; font-size: 15px; }
+  #loading { text-align: center; padding: 24px; font-size: 18px; }
+</style>
+</head>
+<body>
+
+<h1>🧭 沿途</h1>
+
+<!-- 输入区 -->
+<div class="field">
+  <label>城市</label>
+  <input type="text" id="city" placeholder="例如：北京">
+</div>
+<div class="field">
+  <label>起点</label>
+  <input type="text" id="start" placeholder="例如：奥森公园">
+</div>
+<div class="field">
+  <label>终点</label>
+  <input type="text" id="end" placeholder="例如：望京SOHO">
+</div>
+<div class="field">
+  <label>关键词</label>
+  <input type="text" id="keyword" placeholder="例如：咖啡">
+</div>
+
+<!-- 分类 tab（从 /along/categories 拿） -->
+<div class="tabs-title">── 分类 ──</div>
+<div class="tabs" id="tabs"></div>
+
+<!-- 方式 + 数量 -->
+<div class="row">
+  <span class="group-label">方式</span>
+  <label><input type="radio" name="mode" value="bicycling"> 骑行</label>
+  <label><input type="radio" name="mode" value="driving"> 驾车</label>
+  <label><input type="radio" name="mode" value="walking"> 步行</label>
+
+  <span class="group-label" style="margin-left:16px">数量</span>
+  <select id="topN">
+    <option value="1">1</option>
+    <option value="3">3</option>
+    <option value="5">5</option>
+    <option value="10">10</option>
+  </select>
+</div>
+
+<button id="searchBtn">开始搜索</button>
+<div id="loadingHint"></div>
+
+<!-- 结果区 -->
+<div id="resultTitle" style="display:none">📋 结果</div>
+<div id="result"></div>
+
+<script>
+// ── localStorage 字段（统一 waypoint. 前缀） ──
+const LS_KEYS = ['city', 'start', 'end', 'keyword', 'mode', 'topN', 'category'];
+
+// 距离文案阈值（米）：0-100 顺路 / 101-200 稍绕 / 201-500 绕远了 / >500 太远
+function ratingOf(meters) {
+  if (meters <= 100) return '顺路';
+  if (meters <= 200) return '稍绕';
+  if (meters <= 500) return '绕远了';
+  return '太远';
+}
+
+// ── 从 localStorage 读，填充表单 ──
+function loadForm() {
+  for (const k of LS_KEYS) {
+    const v = localStorage.getItem('waypoint.' + k);
+    if (v === null) continue;
+    if (k === 'mode') {
+      const radio = document.querySelector(`input[name=mode][value="${v}"]`);
+      if (radio) radio.checked = true;
+    } else if (k === 'topN') {
+      document.getElementById('topN').value = v;
+    } else if (k === 'category') {
+      // tab 还没渲染，先存起来，tabs 渲染后再高亮
+      pendingCategory = v;
+    } else {
+      document.getElementById(k).value = v;
+    }
+  }
+  // 默认骑行（开发者骑车通勤）
+  if (!document.querySelector('input[name=mode]:checked')) {
+    document.querySelector('input[name=mode][value=bicycling]').checked = true;
+  }
+}
+
+// ── 点搜索时把当前表单写入 localStorage ──
+function saveForm(categoryLabel) {
+  for (const k of LS_KEYS) {
+    let v;
+    if (k === 'mode') v = document.querySelector('input[name=mode]:checked').value;
+    else if (k === 'topN') v = document.getElementById('topN').value;
+    else if (k === 'category') v = categoryLabel;
+    else v = document.getElementById(k).value;
+    localStorage.setItem('waypoint.' + k, v);
+  }
+}
+
+// ── 分类 tab ──
+let currentCategory = '全部';   // 当前选中分类（label）
+let pendingCategory = null;     // 从 localStorage 读到、等 tabs 渲染后高亮
+
+async function loadTabs() {
+  try {
+    const resp = await fetch('/along/categories');
+    const data = await resp.json();
+    const tabsEl = document.getElementById('tabs');
+    tabsEl.innerHTML = '';
+    for (const item of data.categories) {
+      const btn = document.createElement('button');
+      btn.textContent = item.label;
+      btn.dataset.label = item.label;
+      if (item.label === (pendingCategory || '全部')) {
+        btn.classList.add('active');
+        currentCategory = item.label;
+      }
+      btn.onclick = () => onTabClick(item.label, btn);
+      tabsEl.appendChild(btn);
+    }
+    // localStorage 读到的分类没匹配上（比如字典删了该项），回退到「全部」
+    if (!tabsEl.querySelector('.active')) {
+      tabsEl.querySelector('button').classList.add('active');
+      currentCategory = '全部';
+    }
+  } catch (e) {
+    document.getElementById('result').innerHTML = '<div id="error">⚠️ 分类列表加载失败，刷新重试</div>';
+  }
+}
+
+function onTabClick(label, btn) {
+  if (label === currentCategory) return;
+  currentCategory = label;
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  // 切换分类自动重新请求（其他参数不变）
+  doSearch();
+}
+
+// ── 主搜索逻辑 ──
+async function doSearch() {
+  const city = document.getElementById('city').value.trim();
+  const start = document.getElementById('start').value.trim();
+  const end = document.getElementById('end').value.trim();
+  const keyword = document.getElementById('keyword').value.trim();
+
+  // 前端兜底校验（后端也会校验，这里早点拦住）
+  if (!city || !start || !end || !keyword) {
+    renderError('❌ 请把城市 / 起点 / 终点 / 关键词都填好');
+    return;
+  }
+
+  saveForm(currentCategory);
+
+  const params = new URLSearchParams({ city, start, end, keyword });
+  params.set('mode', document.querySelector('input[name=mode]:checked').value);
+  params.set('topN', document.getElementById('topN').value);
+  // 「全部」不传 category，后端不过滤分类
+  if (currentCategory !== '全部') params.set('category', currentCategory);
+
+  // ── loading ──
+  const btn = document.getElementById('searchBtn');
+  btn.disabled = true;
+  btn.textContent = '搜索中...';
+  document.getElementById('loadingHint').textContent = '⏳ 预计 5-10 秒（后端串行调高德）';
+  document.getElementById('resultTitle').style.display = 'none';
+  document.getElementById('result').innerHTML = '<div id="loading">⏳ 正在沿途找店...</div>';
+
+  try {
+    const resp = await fetch('/along?' + params.toString());
+    const data = await resp.json();
+
+    if (resp.ok) {
+      renderResult(data.result);
+    } else {
+      // 错误文案直接用后端返回的 message
+      const msg = data.message || '请求失败';
+      const icon = resp.status === 404 ? '🔍' : (resp.status === 502 ? '⚠️' : '❌');
+      renderError(`${icon} ${msg}`);
+    }
+  } catch (e) {
+    renderError('⚠️ 网络不通，检查一下？');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '开始搜索';
+    document.getElementById('loadingHint').textContent = '';
+  }
+}
+
+// ── 渲染结果列表 ──
+function renderResult(list) {
+  document.getElementById('loading').remove();
+  document.getElementById('resultTitle').style.display = 'block';
+  const box = document.getElementById('result');
+  box.innerHTML = '';
+
+  for (const p of list) {
+    const card = document.createElement('div');
+    card.className = 'card';
+
+    const name = document.createElement('div');
+    name.className = 'name';
+    name.textContent = p.name;
+    card.appendChild(name);
+
+    const dist = document.createElement('div');
+    dist.className = 'dist';
+    dist.textContent = `绕路 ${p.distanceToRouteMeters} 米 · ${ratingOf(p.distanceToRouteMeters)}`;
+    card.appendChild(dist);
+
+    const addr = document.createElement('div');
+    addr.className = 'addr';
+    addr.textContent = p.address || '';
+    card.appendChild(addr);
+
+    // 链接行：tel + 打开地图（tel 为空则不显示电话）
+    const links = document.createElement('div');
+    links.className = 'links';
+    if (p.tel) {
+      const telA = document.createElement('a');
+      telA.href = 'tel:' + p.tel;
+      telA.textContent = '📞 ' + p.tel;
+      links.appendChild(telA);
+    }
+    if (p.location) {
+      const mapA = document.createElement('a');
+      mapA.href = `https://uri.amap.com/marker?position=${p.location}&name=${encodeURIComponent(p.name)}`;
+      mapA.target = '_blank';
+      mapA.textContent = '🗺️ 打开地图';
+      links.appendChild(mapA);
+    }
+    card.appendChild(links);
+
+    box.appendChild(card);
+  }
+}
+
+function renderError(html) {
+  document.getElementById('loading')?.remove();
+  document.getElementById('resultTitle').style.display = 'none';
+  document.getElementById('result').innerHTML = `<div id="error">${html}</div>`;
+}
+
+// ── 启动 ──
+loadForm();
+loadTabs();
+document.getElementById('searchBtn').onclick = doSearch;
+</script>
+</body>
+</html>
