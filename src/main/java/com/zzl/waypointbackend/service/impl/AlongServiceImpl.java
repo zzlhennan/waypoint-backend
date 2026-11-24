@@ -57,7 +57,7 @@ public class AlongServiceImpl implements AlongService {
         // ④ 每个采样点按初始半径搜 POI；④.1 按 id 去重
         // category（分类名）经 DictUtils 翻译成 types 编码；查不到为 null → 纯 keyword 模糊搜
         // 每个 around 调用后 sleep 限速：免费版单 key 3 QPS，多 key 轮询 + 间隔 400ms 避免突发超限(10021)
-        String types = DictUtils.getValue(query.getCategory());
+        String types = DictUtils.getValue(DictUtils.TYPE_POI_CATEGORY, query.getCategory());
         Map<String, PoiCandidate> candidates = new LinkedHashMap<>();
         for (Point sample : samples) {
             collectAround(sample, query.getKeyword(), types, radius, candidates);
