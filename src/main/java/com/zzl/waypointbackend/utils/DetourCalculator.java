@@ -1,6 +1,6 @@
 package com.zzl.waypointbackend.utils;
 
-import com.zzl.waypointbackend.dto.Point;
+import com.zzl.waypointbackend.common.dto.Point;
 
 import java.util.ArrayList;
 import java.util.List;

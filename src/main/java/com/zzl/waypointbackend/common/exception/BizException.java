@@ -1,4 +1,4 @@
-package com.zzl.waypointbackend.exception;
+package com.zzl.waypointbackend.common.exception;
 
 import lombok.Getter;
 

@@ -1,7 +1,7 @@
-package com.zzl.waypointbackend.controller;
+package com.zzl.waypointbackend.category.controller;
 
-import com.zzl.waypointbackend.utils.DictUtils;
-import com.zzl.waypointbackend.vo.CategoriesResponse;
+import com.zzl.waypointbackend.category.vo.CategoriesResponse;
+import com.zzl.waypointbackend.utils.dict.DictUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 

@@ -37,18 +37,33 @@ JDK 21 · Spring Boot 4.1.2（保持勿降）· Maven · 高德 API · 无前端
 ```
 src/main/java/com/zzl/waypointbackend/
 ├── WaypointBackendApplication.java   # 启动类（已存在）
-├── config/        # 配置类（@ConfigurationProperties：AmapProperties、AlongProperties）
-├── constant/      # 常量（高德端点、错误码、业务常量）
-├── controller/    # 接口层：AlongController（GET /along）
-├── service/       # 业务接口：AlongService 等
-│   └── impl/      # 业务实现类
-├── feignclient/   # 外部服务调用层（高德 API，Feign 声明式客户端）
-├── mapper/        # 数据访问层（MVP 暂无表，先留空）
-├── dto/           # 请求 / 内部传输对象（含算法内部对象 Point、PoiCandidate）
-├── vo/            # 返回给调用方的对象（AlongResponse 等）
-├── exception/     # BizException、GlobalExceptionHandler、统一错误响应体
-└── utils/         # 工具类（DetourCalculator 等）
+│
+├── common/                    # 横切通用（所有业务域共享）
+│   ├── dto/Point.java         #   经纬度坐标（feignclient 解析 polyline / DetourCalculator / along 共用）
+│   └── exception/             #   BizException、GlobalExceptionHandler、统一错误响应体
+│
+├── config/                    # 配置类（@ConfigurationProperties：AmapProperties、AlongProperties）
+├── feignclient/               # 外部服务调用层（高德 API，Feign 声明式客户端；dto/ 放高德响应结构）
+│
+├── along/                     # 业务域：沿途 POI 推荐（按 controller/service/dto/vo/mapper 垂直分包）
+│   ├── controller/            #   AlongController（GET /along）
+│   ├── service/               #   AlongService（impl/ 放实现类）
+│   ├── dto/                   #   AlongQuery、PoiCandidate（算法内部对象）
+│   ├── vo/                    #   AlongResponse、PoiItem
+│   └── mapper/                #   数据访问层（MVP 暂无表，package-info 占位；未来接库后归各业务域自己）
+│
+├── category/                  # 业务域：分类字典
+│   ├── controller/            #   CategoryController（GET /along/categories）
+│   └── vo/                    #   CategoriesResponse（只暴露 label，types 不下发）
+│
+└── utils/                     # 工具类
+    ├── DetourCalculator.java #   纯几何（绕路距离计算）
+    └── dict/                  #   DictUtils（通用字典，双向缓存按 dictType 分组）、DictItem
 ```
+
+> **分包原则**：按业务域垂直分包（along / category），横切通用的放 `common/`；
+> 外部调用统一收口 `feignclient/`；配置 `config/`、工具 `utils/` 保持根级。
+> 新增业务域时，照 along 的样子建自己的 controller/service/dto/vo/mapper。
 
 ## 5. 编码约定
 
@@ -76,7 +91,9 @@ src/main/java/com/zzl/waypointbackend/
 > 详细进度看 git log（一个功能一个 commit），本节**只维护"下一步"指针，不堆历史快照**。
 
 **MVP 已交付（2026-11）**：主干端到端通 + 收尾三件套（category/DictUtils/strategy 透传、edge case 400/404/502 全绿、README）+ QPS 优化（多 key 轮询 + sleep 200ms + 采样间隔 1000）。
-**下一期（待启动）**：按 `docs/05-前端页面设计.md` 实现 HTML 单文件页面（+ 新增 `GET /along/categories` 接口）。
+**前端已交付（2026-11）**：`src/main/resources/static/index.html` 单文件页面（访问 `http://localhost:22830/`）+ `GET /along/categories` 接口（DictUtils 重构为通用字典架构，双向缓存按 dictType 分组）。
+**包结构已重构（2026-11）**：按业务域垂直分包（along/、category/），横切归 common/（dto/Point、exception/），字典归 utils/dict/。
+**下一期（待启动）**：等开发者本人连续用几天前端页面，收集反馈再迭代；或启动 Flutter 移动端（另起 06 文档）。
 
 整体路线（顺序固定；每一步都先走第 3 节讨论流程，我说开始才写）：
 1. ~~`AmapProperties` / `AlongProperties`（读配置 + fail-fast）~~ ✅

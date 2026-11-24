@@ -1,6 +1,6 @@
 package com.zzl.waypointbackend.utils;
 
-import com.zzl.waypointbackend.dto.Point;
+import com.zzl.waypointbackend.common.dto.Point;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

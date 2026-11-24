@@ -1,18 +1,18 @@
-package com.zzl.waypointbackend.service.impl;
+package com.zzl.waypointbackend.along.service.impl;
 
+import com.zzl.waypointbackend.along.dto.AlongQuery;
+import com.zzl.waypointbackend.along.dto.PoiCandidate;
+import com.zzl.waypointbackend.common.dto.Point;
+import com.zzl.waypointbackend.along.service.AlongService;
+import com.zzl.waypointbackend.along.vo.AlongResponse;
+import com.zzl.waypointbackend.along.vo.PoiItem;
+import com.zzl.waypointbackend.common.exception.BizException;
 import com.zzl.waypointbackend.config.AlongProperties;
-import com.zzl.waypointbackend.dto.AlongQuery;
-import com.zzl.waypointbackend.dto.PoiCandidate;
-import com.zzl.waypointbackend.dto.Point;
-import com.zzl.waypointbackend.exception.BizException;
 import com.zzl.waypointbackend.feignclient.AmapClient;
 import com.zzl.waypointbackend.feignclient.dto.AmapV5PoiResponse;
 import com.zzl.waypointbackend.feignclient.dto.AmapV5RouteResponse;
-import com.zzl.waypointbackend.service.AlongService;
 import com.zzl.waypointbackend.utils.DetourCalculator;
-import com.zzl.waypointbackend.utils.DictUtils;
-import com.zzl.waypointbackend.vo.AlongResponse;
-import com.zzl.waypointbackend.vo.PoiItem;
+import com.zzl.waypointbackend.utils.dict.DictUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

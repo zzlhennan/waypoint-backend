@@ -1,4 +1,4 @@
-package com.zzl.waypointbackend.vo;
+package com.zzl.waypointbackend.category.vo;
 
 import lombok.Data;
 

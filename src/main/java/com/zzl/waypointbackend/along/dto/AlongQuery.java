@@ -1,4 +1,4 @@
-package com.zzl.waypointbackend.dto;
+package com.zzl.waypointbackend.along.dto;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;

@@ -1,6 +1,4 @@
-package com.zzl.waypointbackend.utils;
-
-import com.zzl.waypointbackend.dto.DictItem;
+package com.zzl.waypointbackend.utils.dict;
 
 import java.util.ArrayList;
 import java.util.Collections;

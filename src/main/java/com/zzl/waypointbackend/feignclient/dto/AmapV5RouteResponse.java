@@ -1,7 +1,7 @@
 package com.zzl.waypointbackend.feignclient.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.zzl.waypointbackend.dto.Point;
+import com.zzl.waypointbackend.common.dto.Point;
 import lombok.Data;
 
 import java.util.ArrayList;

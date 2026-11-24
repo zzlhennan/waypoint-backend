@@ -1,4 +1,4 @@
-package com.zzl.waypointbackend.vo;
+package com.zzl.waypointbackend.along.vo;
 
 import lombok.Data;
 

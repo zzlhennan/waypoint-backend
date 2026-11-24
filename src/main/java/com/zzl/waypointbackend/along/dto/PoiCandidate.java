@@ -1,10 +1,10 @@
-package com.zzl.waypointbackend.dto;
+package com.zzl.waypointbackend.along.dto;
 
 import lombok.Data;
 
 /**
  * 内部候选 POI：从高德 around 收集、去重后，附上算好的 distanceToRouteMeters。
- * 仅在 service 内部流转，最终映射成 {@link com.zzl.waypointbackend.vo.PoiItem} 返回。
+ * 仅在 service 内部流转，最终映射成 {@link com.zzl.waypointbackend.along.vo.PoiItem} 返回。
  */
 @Data
 public class PoiCandidate {

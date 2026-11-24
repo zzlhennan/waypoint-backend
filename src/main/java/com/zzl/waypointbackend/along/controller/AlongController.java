@@ -1,8 +1,8 @@
-package com.zzl.waypointbackend.controller;
+package com.zzl.waypointbackend.along.controller;
 
-import com.zzl.waypointbackend.dto.AlongQuery;
-import com.zzl.waypointbackend.service.AlongService;
-import com.zzl.waypointbackend.vo.AlongResponse;
+import com.zzl.waypointbackend.along.dto.AlongQuery;
+import com.zzl.waypointbackend.along.service.AlongService;
+import com.zzl.waypointbackend.along.vo.AlongResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
