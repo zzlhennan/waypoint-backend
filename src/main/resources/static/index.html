@@ -166,7 +166,7 @@ let pendingCategory = null;     // 从 localStorage 读到、等 tabs 渲染后�
 
 async function loadTabs() {
   try {
-    const resp = await fetch('/along/categories');
+    const resp = await fetch('/category/list?dictType=poi_category');
     const data = await resp.json();
     const tabsEl = document.getElementById('tabs');
     tabsEl.innerHTML = '';
@@ -230,7 +230,7 @@ async function doSearch() {
   document.getElementById('result').innerHTML = '<div id="loading">⏳ 正在沿途找店...</div>';
 
   try {
-    const resp = await fetch('/along?' + params.toString());
+    const resp = await fetch('/along/search?' + params.toString());
     const data = await resp.json();
 
     if (resp.ok) {
