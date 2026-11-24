@@ -66,15 +66,17 @@ src/main/java/com/zzl/waypointbackend/
 1. `docs/01-需求文档.md` —— 需求基线：用户故事、验收标准、算法口径、决策记录
 2. `docs/02-高德API.md` —— 高德对接：接口、参数、key 管理、错误码（**开头有 MVP 接口速查表**）
 3. `docs/03-接口文档.md` —— 概要设计 + 详细设计：接口字段定义、类设计、配置项、异常处理
-4. `docs/04-MVP收尾.md` —— 当前阶段的任务清单（edge case / category透传 / README）
-5. `docs/Attachment01-绕路距离算法.md` —— DetourCalculator 数学原理（按需查阅）
-6. `docs/Attachment02-高德POI分类与编码（中英文）_V1.06_20230208.xlsx` —— 官方类型编码表（按需查阅）
+4. `docs/04-MVP收尾.md` —— MVP 收尾清单（已全部完成）
+5. `docs/05-前端页面设计.md` —— HTML 单文件页面详细设计（下一期任务）
+6. `docs/Attachment01-绕路距离算法.md` —— DetourCalculator 数学原理（按需查阅）
+7. `docs/Attachment02-高德POI分类与编码（中英文）_V1.06_20230208.xlsx` —— 官方类型编码表（按需查阅）
 
 ## 7. 当前进度与下一步
 
 > 详细进度看 git log（一个功能一个 commit），本节**只维护"下一步"指针，不堆历史快照**。
 
-**MVP 已交付（2026-11）**：主干端到端通 + 收尾三件套（category/DictUtils/strategy 透传、edge case 400/404/502 全绿、README）+ QPS 优化（多 key 轮询 + sleep 200ms + 采样间隔 1000）。**当前无待办**，新需求（US-2 加油站 / 前端 / 并发）等开发者提。
+**MVP 已交付（2026-11）**：主干端到端通 + 收尾三件套（category/DictUtils/strategy 透传、edge case 400/404/502 全绿、README）+ QPS 优化（多 key 轮询 + sleep 200ms + 采样间隔 1000）。
+**下一期（待启动）**：按 `docs/05-前端页面设计.md` 实现 HTML 单文件页面（+ 新增 `GET /along/categories` 接口）。
 
 整体路线（顺序固定；每一步都先走第 3 节讨论流程，我说开始才写）：
 1. ~~`AmapProperties` / `AlongProperties`（读配置 + fail-fast）~~ ✅
