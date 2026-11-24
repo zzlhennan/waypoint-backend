@@ -74,7 +74,7 @@ src/main/java/com/zzl/waypointbackend/
 
 > 详细进度看 git log（一个功能一个 commit），本节**只维护"下一步"指针，不堆历史快照**。
 
-**下一步：按 `docs/04-MVP收尾.md` 推进——edge case 真实验证（400/404/502）→ category 透传 + DictUtils 字典 + strategy 透传 → 写 README。**
+**MVP 已交付（2026-11）**：主干端到端通 + 收尾三件套（category/DictUtils/strategy 透传、edge case 400/404/502 全绿、README）+ QPS 优化（多 key 轮询 + sleep 200ms + 采样间隔 1000）。**当前无待办**，新需求（US-2 加油站 / 前端 / 并发）等开发者提。
 
 整体路线（顺序固定；每一步都先走第 3 节讨论流程，我说开始才写）：
 1. ~~`AmapProperties` / `AlongProperties`（读配置 + fail-fast）~~ ✅
@@ -99,4 +99,6 @@ src/main/java/com/zzl/waypointbackend/
 - v5 城市入参是 **`region`/`city_limit`**（≠v3 `city`/`citylimit`，旧名兼容但用官方名）
 - **分类参数用 `category=冷饮`（传名字）**，后端 `DictUtils.getValue()` 翻译成 types 编码；不要让前端/用户传裸编码
 - 咖啡厅 types 编码是 **`050500`**（不是 `050300`，那是快餐厅），完整编码表见 Attachment02 xlsx
+- **QPS 限流（免费版单 key 3 QPS）**：多 key 轮询（`amap.keys` 列表）+ 每个 around 后 `sleep 200ms`；采样间隔已调到 1000m 减少请求数
+- **报错分类**：高德 `status!=1`（key错/限流）→ 502；`status=1` 但 `pois空` → 400（地名查不到）；全程候选空 → 404
 - Windows 控制台中文乱码是 GBK 显示问题，文件本身 UTF-8 正常，不用改文件

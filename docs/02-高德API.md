@@ -36,14 +36,18 @@
 
 | 文件 | 是否入 git | 内容 |
 |---|---|---|
-| `application.yml` | ✅ 入 git | `amap.key: ${AMAP_KEY:}` 占位，无真实 key |
-| `application-local.yml` | ❌ **git 忽略** | 真实 key，仅本地 |
+| `application.yml` | ✅ 入 git | `amap.keys: [${AMAP_KEY_1:}, ${AMAP_KEY_2:}, ${AMAP_KEY_3:}]` 占位，无真实 key |
+| `application-local.yml` | ❌ **git 忽略** | 真实 keys 列表，仅本地 |
 
 - 本地开发默认激活 `local` profile，自动读 local 文件，IDEA 点运行即可
-- 部署时走环境变量 `AMAP_KEY`
-- **fail-fast**：key 未配置时启动期就报错
+- 部署时走环境变量 `AMAP_KEY_1` / `AMAP_KEY_2` / `AMAP_KEY_3`
+- **fail-fast**：`keys` 列表为空或元素全空白时启动期报错
 - **绝不把真实 key 写进任何入 git 的文件**
 - 建议：高德控制台为 key 开启 **IP 白名单**，防止泄露被盗用
+
+> **多 key 轮询（QPS 规避）**：免费版单 key 限 3 QPS，一次 `/along` 会连发十几次请求，容易触发 10021 限流。
+> 因此 `amap.keys` 是**列表**，`AmapKeyInterceptor` 用 `AtomicInteger` 取模轮询分散压力；
+> 同时每个 around 调用后 `sleep 200ms`（见 `AlongServiceImpl.sleepBeforeNext`）把突发请求摊到几秒内。
 
 > **调用时 key 如何注入**：Java 方法签名里**不带 key**，由 `AmapKeyInterceptor`（Feign `RequestInterceptor`）统一在每个请求 URL 后追加 `?key=...`。
 > 该拦截器通过 `AmapFeignConfig` **以 per-client 方式绑定到 AmapClient**（`@FeignClient(configuration=...)`），
@@ -76,7 +80,7 @@
 | 关键参数 | `keywords={关键词}`、`location={经度,纬度}`、`radius={米}`、`types`（`key` 由拦截器自动注入） |
 | 字段控制 | `show_fields`：默认返回 `name`/`address`/`location`/`type`/`typecode`/`adname`/`pname`/`cityname`/`distance` 等（**`type`/`adname` 默认就有**）；加 **`show_fields=business`** 才多 `business` 子对象 |
 | 返回 | `pois[]`；⚠️ **`tel`/`rating`/`cost`/营业时间 在 `poi.business.*`（嵌套子对象，非平铺）**，需 `show_fields=business` |
-| 备注 | 半径由 `along.search-radius-meters` 驱动；搜不到按 PRD 扩到 1km 重试一次 |
+| 备注 | 半径由 `along.search-radius-meters` 驱动；全程空结果时整体用 `search-radius-retry-meters` 补搜一轮（**不做单采样点独立重试**——避免 QPS 翻倍） |
 
 ### 3.3 路径规划 2.0（direction）—— 路线坐标用
 
