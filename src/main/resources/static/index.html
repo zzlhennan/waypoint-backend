@@ -25,9 +25,11 @@
     border: 1px solid #ccc; border-radius: 8px; background: #fff; font-size: 16px;
   }
 
-  /* ── 分类 tab ── */
-  .tabs-title { font-size: 14px; color: #666; margin: 16px 0 8px; }
+  /* ── 分类 tab ──（没搜索前 tabs 为空，标题跟着隐藏） ── */
+  .tabs-title { display: none; font-size: 14px; color: #666; margin: 16px 0 8px; }
+  .tabs-title:has(+ .tabs:not(:empty)) { display: block; }
   .tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tabs:empty { display: none; }
   .tabs button {
     height: 36px; padding: 0 14px; border-radius: 18px;
     border: 1px solid #ccc; background: #fff; font-size: 14px; cursor: pointer;
@@ -86,23 +88,23 @@
   <input type="text" id="keyword" placeholder="例如：咖啡">
 </div>
 
-<!-- 分类 tab（从 /along/categories 拿） -->
+<!-- 分类 tab（搜索后从响应 categories 动态渲染） -->
 <div class="tabs-title">── 分类 ──</div>
 <div class="tabs" id="tabs"></div>
 
 <!-- 方式 + 数量 -->
 <div class="row">
   <span class="group-label">方式</span>
-  <label><input type="radio" name="mode" value="bicycling"> 骑行</label>
   <label><input type="radio" name="mode" value="driving"> 驾车</label>
+  <label><input type="radio" name="mode" value="bicycling"> 骑行</label>
   <label><input type="radio" name="mode" value="walking"> 步行</label>
 
   <span class="group-label" style="margin-left:16px">数量</span>
   <select id="topN">
-    <option value="1">1</option>
     <option value="3">3</option>
     <option value="5">5</option>
     <option value="10">10</option>
+    <option value="0" selected>全部</option>
   </select>
 </div>
 
@@ -125,6 +127,12 @@ function ratingOf(meters) {
   return '太远';
 }
 
+// ── 全局状态：后端返回的全集，前端本地过滤 + 分页 ──
+let ALL_RESULTS = [];        // 后端返回的全部候选（不受 topN 限制）
+let cachedCategories = null; // tab 缓存：响应 categories 为 null 时用旧缓存
+let currentCategory = '全部'; // 当前选中分类（label）
+let pendingCategory = null;   // 从 localStorage 读到、等 tab 渲染后高亮
+
 // ── 从 localStorage 读，填充表单 ──
 function loadForm() {
   for (const k of LS_KEYS) {
@@ -136,15 +144,14 @@ function loadForm() {
     } else if (k === 'topN') {
       document.getElementById('topN').value = v;
     } else if (k === 'category') {
-      // tab 还没渲染，先存起来，tabs 渲染后再高亮
       pendingCategory = v;
     } else {
       document.getElementById(k).value = v;
     }
   }
-  // 默认骑行（开发者骑车通勤）
+  // 默认驾车
   if (!document.querySelector('input[name=mode]:checked')) {
-    document.querySelector('input[name=mode][value=bicycling]').checked = true;
+    document.querySelector('input[name=mode][value=driving]').checked = true;
   }
 }
 
@@ -160,68 +167,79 @@ function saveForm(categoryLabel) {
   }
 }
 
-// ── 分类 tab ──
-let currentCategory = '全部';   // 当前选中分类（label）
-let pendingCategory = null;     // 从 localStorage 读到、等 tabs 渲染后高亮
+// ── 分类 tab（从 cachedCategories 渲染，带 count） ──
+function renderTabs() {
+  if (!cachedCategories) return;
+  const tabsEl = document.getElementById('tabs');
+  tabsEl.innerHTML = '';
 
-async function loadTabs() {
-  try {
-    const resp = await fetch('/category/list?dictType=poi_category');
-    const data = await resp.json();
-    const tabsEl = document.getElementById('tabs');
-    tabsEl.innerHTML = '';
-    for (const item of data.categories) {
-      const btn = document.createElement('button');
-      btn.textContent = item.label;
-      btn.dataset.label = item.label;
-      if (item.label === (pendingCategory || '全部')) {
-        btn.classList.add('active');
-        currentCategory = item.label;
-      }
-      btn.onclick = () => onTabClick(item.label, btn);
-      tabsEl.appendChild(btn);
-    }
-    // localStorage 读到的分类没匹配上（比如字典删了该项），回退到「全部」
-    if (!tabsEl.querySelector('.active')) {
-      tabsEl.querySelector('button').classList.add('active');
-      currentCategory = '全部';
-    }
-  } catch (e) {
-    document.getElementById('result').innerHTML = '<div id="error">⚠️ 分类列表加载失败，刷新重试</div>';
+  // 全部的 count = 各分类 count 之和
+  const total = cachedCategories.reduce((sum, c) => sum + c.count, 0);
+  addTab('全部', total);
+  for (const c of cachedCategories) {
+    addTab(c.label, c.count);
   }
 }
 
+function addTab(label, count) {
+  const tabsEl = document.getElementById('tabs');
+  const btn = document.createElement('button');
+  btn.textContent = count != null ? `${label}(${count})` : label;
+  btn.dataset.label = label;
+  if (label === currentCategory) btn.classList.add('active');
+  btn.onclick = () => onTabClick(label, btn);
+  tabsEl.appendChild(btn);
+}
+
+/**
+ * 点 tab：本地过滤 ALL_RESULTS，不重新请求后端。
+ * 数量一定对得上 tab count（都是同一批数据）。
+ */
 function onTabClick(label, btn) {
   if (label === currentCategory) return;
   currentCategory = label;
   document.querySelectorAll('#tabs button').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  // 切换分类自动重新请求（其他参数不变）
-  doSearch();
+  saveForm(currentCategory);
+  renderCurrentList();
 }
 
-// ── 主搜索逻辑 ──
+/**
+ * 根据 currentCategory + topN，从 ALL_RESULTS 算出当前要显示的列表并渲染。
+ */
+function renderCurrentList() {
+  // 本地过滤
+  const filtered = currentCategory === '全部'
+    ? ALL_RESULTS
+    : ALL_RESULTS.filter(p => p.secondaryType === currentCategory);
+  // 本地分页
+  const topN = parseInt(document.getElementById('topN').value);
+  const shown = topN > 0 ? filtered.slice(0, topN) : filtered;
+  renderResult(shown);
+}
+
+// ── 主搜索逻辑（只在用户点"开始搜索"时调后端） ──
 async function doSearch() {
   const city = document.getElementById('city').value.trim();
   const start = document.getElementById('start').value.trim();
   const end = document.getElementById('end').value.trim();
   const keyword = document.getElementById('keyword').value.trim();
 
-  // 前端兜底校验（后端也会校验，这里早点拦住）
   if (!city || !start || !end || !keyword) {
     renderError('❌ 请把城市 / 起点 / 终点 / 关键词都填好');
     return;
   }
 
+  // 点"开始搜索" = 全新搜索，分类重置为"全部"
+  // （避免上次点的 tab 还残留，导致新 keyword 被旧分类过滤掉）
+  currentCategory = '全部';
   saveForm(currentCategory);
 
+  // 后端永远返回全集（topN=0），前端本地过滤 + 分页
   const params = new URLSearchParams({ city, start, end, keyword });
   params.set('mode', document.querySelector('input[name=mode]:checked').value);
-  params.set('topN', document.getElementById('topN').value);
-  // 「全部」不传 category，后端不过滤分类
-  if (currentCategory !== '全部') params.set('category', currentCategory);
+  params.set('topN', '0');
 
-  // ── loading ──
   const btn = document.getElementById('searchBtn');
   btn.disabled = true;
   btn.textContent = '搜索中...';
@@ -234,9 +252,20 @@ async function doSearch() {
     const data = await resp.json();
 
     if (resp.ok) {
-      renderResult(data.result);
+      // 存全集
+      ALL_RESULTS = data.result || [];
+      // categories 非 null → 更新 tab 缓存 + 渲染
+      if (data.categories) {
+        cachedCategories = data.categories;
+        if (pendingCategory) {
+          currentCategory = pendingCategory;
+          pendingCategory = null;
+        }
+        renderTabs();
+      }
+      // 本地过滤 + 分页渲染
+      renderCurrentList();
     } else {
-      // 错误文案直接用后端返回的 message
       const msg = data.message || '请求失败';
       const icon = resp.status === 404 ? '🔍' : (resp.status === 502 ? '⚠️' : '❌');
       renderError(`${icon} ${msg}`);
@@ -252,7 +281,7 @@ async function doSearch() {
 
 // ── 渲染结果列表 ──
 function renderResult(list) {
-  document.getElementById('loading').remove();
+  document.getElementById('loading')?.remove();
   document.getElementById('resultTitle').style.display = 'block';
   const box = document.getElementById('result');
   box.innerHTML = '';
@@ -276,7 +305,6 @@ function renderResult(list) {
     addr.textContent = p.address || '';
     card.appendChild(addr);
 
-    // 链接行：tel + 打开地图（tel 为空则不显示电话）
     const links = document.createElement('div');
     links.className = 'links';
     if (p.tel) {
@@ -304,9 +332,14 @@ function renderError(html) {
   document.getElementById('result').innerHTML = `<div id="error">${html}</div>`;
 }
 
+// ── 改 topN 时本地重新分页，不重新请求 ──
+document.getElementById('topN').onchange = () => {
+  saveForm(currentCategory);
+  if (ALL_RESULTS.length > 0) renderCurrentList();
+};
+
 // ── 启动 ──
 loadForm();
-loadTabs();
 document.getElementById('searchBtn').onclick = doSearch;
 </script>
 </body>

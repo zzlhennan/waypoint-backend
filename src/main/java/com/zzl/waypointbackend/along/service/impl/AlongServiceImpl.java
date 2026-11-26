@@ -88,6 +88,12 @@ public class AlongServiceImpl implements AlongService {
             throw BizException.notFound("沿途 " + alongProperties.maxDetourMeters() + " 米内没找到 " + query.getKeyword());
         }
 
+        // ⑥.1 给每个候选截 secondaryType（无论是否带 category，前端本地 tab 过滤都要用）
+        for (PoiCandidate c : filtered) {
+            String[] parts = c.getType() != null ? c.getType().split(";") : null;
+            c.setSecondaryType((parts != null && parts.length >= 2) ? parts[1].trim() : null);
+        }
+
         // ⑦ 统计二级分类 + 动态学习（硬过滤后、topN 截取前，统计基于全集不受 topN 影响）
         // 仅在本次请求不带 category 过滤时才返回 categories（避免 tab 被过滤后的小集合冲掉）
         List<AlongResponse.CategoryCount> categoryCounts = null;
@@ -108,6 +114,7 @@ public class AlongServiceImpl implements AlongService {
      * 统计硬过滤后候选的二级分类 count，同时把新分类 learn 进 DictUtils。
      *
      * <p>二级分类 = typecode 前 4 位（如 "050501" → "0505"）+ type 第二级中文（如 "餐饮服务;咖啡厅" → "咖啡厅"）。
+     * 同时把截取好的 secondaryType 设回 candidate，供 buildResponse 透传给前端本地过滤。
      * typecode/type 缺失的候选跳过统计（不影响 result 本身）。
      *
      * @return 按 count 降序的分类统计列表
@@ -116,13 +123,14 @@ public class AlongServiceImpl implements AlongService {
         // label → count（LinkedHashMap 保持首次出现顺序，最后按 count 排序）
         Map<String, Integer> countMap = new LinkedHashMap<>();
         for (PoiCandidate c : filtered) {
-            String[] parts = c.getType() != null ? c.getType().split(";") : null;
-            String label = (parts != null && parts.length >= 2) ? parts[1].trim() : null;
+            // secondaryType 已在 ⑥.1 统一截取，这里直接用 c.getSecondaryType()
+            String label = c.getSecondaryType();
             String value = (c.getTypecode() != null && c.getTypecode().length() >= 4)
                     ? c.getTypecode().substring(0, 4) : null;
             if (label == null || label.isEmpty() || value == null) {
                 continue;
             }
+            // 把新分类 learn 进 DictUtils（已存在跳过）
             DictUtils.learn(DictUtils.TYPE_POI_CATEGORY, label, value);
             countMap.merge(label, 1, Integer::sum);
         }
@@ -216,6 +224,7 @@ public class AlongServiceImpl implements AlongService {
             item.setLocation(c.getLocation());
             item.setTel(c.getTel());
             item.setType(c.getType());
+            item.setSecondaryType(c.getSecondaryType());
             item.setAdname(c.getAdname());
             items.add(item);
         }

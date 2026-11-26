@@ -18,6 +18,8 @@ public class PoiCandidate {
     private String type;
     /** POI 类型编码（如 "050501"）；用于二级分类聚合（取前 4 位） */
     private String typecode;
+    /** 二级分类中文（从 type.split(";")[1] 截取，如 "咖啡厅"）；前端本地 tab 过滤用 */
+    private String secondaryType;
     private String adname;
 
     /** 由 DetourCalculator 算出：到主路折线的最近直线距离（米） */
