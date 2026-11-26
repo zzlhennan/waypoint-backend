@@ -37,7 +37,7 @@ public class AlongServiceImpl implements AlongService {
     @Override
     public AlongResponse along(AlongQuery query) {
         // 入参覆盖配置：mode/topN/radius 不传时用默认值
-        // topN=0 表示「全部」（不截取）；不传用配置 along.top-n（默认 3）
+        // topN=0 表示「全部」（不截取）；不传用配置 along.top-n（默认 0）
         String mode = query.getMode() != null ? query.getMode() : "driving";
         int topN = query.getTopN() != null ? query.getTopN() : alongProperties.topN();
         int radius = query.getRadius() != null ? query.getRadius() : alongProperties.searchRadiusMeters();

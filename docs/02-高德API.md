@@ -95,6 +95,29 @@
 > ✅ 实测确认（v5 driving 奥森→望京SOHO）：默认 `steps[]` 无 polyline；传 **`show_fields=polyline`** 后每个 step 返回 `polyline`。
 > **polyline 格式**：`"116.392067,40.01889;116.391713,40.018955;..."`——按 `;` 分割成点，每点按 `,` 分割为 `经度,纬度`，解析成 `List<Point>`。
 
+### 3.4 输入提示（inputtips，v3）—— 地名联想用
+
+| 项 | 内容 |
+|---|---|
+| 用途 | 输入联想弹窗（输"奥森"弹"奥森公园南门/奥森停车场"） |
+| URL | `GET https://restapi.amap.com/v3/assistant/inputtips` |
+| 官方文档 | https://lbs.amap.com/api/webservice/guide/api-advanced/inputtips |
+| 关键参数 | `keywords={输入}`、`datatype=all\|poi\|bus\|busline`（`key` 由拦截器自动注入） |
+| datatype 可选值 | `all`（全部）、`poi`（POI）、`bus`（公交站）、`busline`（公交线路）——**注意：没有 district** |
+| 返回 | `tips[]`，含 `name`/`location`/`adcode` |
+| 与 place/text 区别 | inputtips 天生为联想设计，返回更短更准；place/text 是精确搜索 |
+
+### 3.5 行政区域查询（district，v3）—— 城市联想用
+
+| 项 | 内容 |
+|---|---|
+| 用途 | 精确查询行政区（输"长沙"返回长沙市/长沙县） |
+| URL | `GET https://restapi.amap.com/v3/config/district` |
+| 官方文档 | https://lbs.amap.com/api/webservice/guide/api/district |
+| 关键参数 | `keywords={输入}`（`key` 由拦截器自动注入） |
+| 返回 | `districts[]`，含 `name`/`adcode`/`level`（province/city/district） |
+| 注意 | 这是**精确查询**，不是模糊联想（输"长"不会返回"长沙市/长春市"） |
+
 ---
 
 ## 4. 全 v5 统一说明（DTO 设计）

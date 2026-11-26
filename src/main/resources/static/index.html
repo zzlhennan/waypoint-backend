@@ -18,12 +18,23 @@
   h1 { font-size: 20px; padding: 8px 0 16px; }
 
   /* ── 输入区 ── */
-  .field { margin-bottom: 12px; }
+  .field { margin-bottom: 12px; position: relative; }
   .field label { display: block; font-size: 14px; color: #666; margin-bottom: 4px; }
   .field input[type=text] {
     width: 100%; height: 44px; padding: 0 12px;
     border: 1px solid #ccc; border-radius: 8px; background: #fff; font-size: 16px;
   }
+  /* 联想弹窗 */
+  .suggest-list {
+    display: none; position: absolute; top: 100%; left: 0; right: 0;
+    background: #fff; border: 1px solid #ddd; border-top: none;
+    border-radius: 0 0 8px 8px; z-index: 100; max-height: 220px; overflow-y: auto;
+    box-shadow: 0 4px 8px rgba(0,0,0,.08);
+  }
+  .suggest-list.visible { display: block; }
+  .suggest-item { padding: 10px 12px; cursor: pointer; font-size: 15px; }
+  .suggest-item:hover, .suggest-item.active { background: #eef4fb; }
+  .suggest-item .addr { font-size: 12px; color: #888; margin-top: 2px; }
 
   /* ── 分类 tab ──（没搜索前 tabs 为空，标题跟着隐藏） ── */
   .tabs-title { display: none; font-size: 14px; color: #666; margin: 16px 0 8px; }
@@ -73,15 +84,18 @@
 <!-- 输入区 -->
 <div class="field">
   <label>城市</label>
-  <input type="text" id="city" placeholder="例如：北京">
+  <input type="text" id="city" placeholder="例如：北京" autocomplete="off">
+  <div class="suggest-list" id="city-suggest"></div>
 </div>
 <div class="field">
   <label>起点</label>
-  <input type="text" id="start" placeholder="例如：奥森公园">
+  <input type="text" id="start" placeholder="例如：奥森公园" autocomplete="off">
+  <div class="suggest-list" id="start-suggest"></div>
 </div>
 <div class="field">
   <label>终点</label>
-  <input type="text" id="end" placeholder="例如：望京SOHO">
+  <input type="text" id="end" placeholder="例如：望京SOHO" autocomplete="off">
+  <div class="suggest-list" id="end-suggest"></div>
 </div>
 <div class="field">
   <label>关键词</label>
@@ -338,8 +352,117 @@ document.getElementById('topN').onchange = () => {
   if (ALL_RESULTS.length > 0) renderCurrentList();
 };
 
+// ── 地名/城市联想 ──
+// 输入框 id → { endpoint: 后端端点, minLen: 最少字符数 }
+// 城市框 1 字就触发（北/上/广），地名框 2 字才触发（单字"奥"没意义）
+const SUGGEST_FIELDS = {
+  city:  { endpoint: '/suggest/district', minLen: 1 },
+  start: { endpoint: '/suggest/poi',      minLen: 2 },
+  end:   { endpoint: '/suggest/poi',      minLen: 2 },
+};
+const SUGGEST_DEBOUNCE = 300; // debounce 300ms
+
+const suggestTimers = {};    // 每个输入框独立的 debounce timer
+const suggestActiveIdx = {};  // 键盘上下选中项索引
+
+function setupSuggest(inputId) {
+  const input = document.getElementById(inputId);
+  const listEl = document.getElementById(inputId + '-suggest');
+  const { endpoint, minLen } = SUGGEST_FIELDS[inputId];
+
+  input.addEventListener('input', () => {
+    clearTimeout(suggestTimers[inputId]);
+    const kw = input.value.trim();
+    if (kw.length < minLen) {
+      hideList(listEl);
+      return;
+    }
+    suggestTimers[inputId] = setTimeout(() => fetchSuggest(inputId, kw, endpoint, listEl), SUGGEST_DEBOUNCE);
+  });
+
+  // 失焦时隐藏（延迟一点，让点击项先触发）
+  input.addEventListener('blur', () => {
+    setTimeout(() => hideList(listEl), 150);
+  });
+
+  // 键盘上下选择 + 回车选中
+  input.addEventListener('keydown', (e) => {
+    const items = listEl.querySelectorAll('.suggest-item');
+    if (!listEl.classList.contains('visible') || items.length === 0) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const cur = suggestActiveIdx[inputId] ?? -1;
+      const next = e.key === 'ArrowDown'
+        ? Math.min(cur + 1, items.length - 1)
+        : Math.max(cur - 1, 0);
+      suggestActiveIdx[inputId] = next;
+      items.forEach((it, i) => it.classList.toggle('active', i === next));
+    } else if (e.key === 'Enter') {
+      if (suggestActiveIdx[inputId] != null && items[suggestActiveIdx[inputId]]) {
+        e.preventDefault();
+        chooseItem(items[suggestActiveIdx[inputId]], input, listEl);
+      }
+    }
+  });
+}
+
+async function fetchSuggest(inputId, kw, endpoint, listEl) {
+  try {
+    const params = new URLSearchParams({ keyword: kw });
+    // 地名联想带当前城市框的值做限定
+    if (endpoint === '/suggest/poi') {
+      const city = document.getElementById('city').value.trim();
+      if (city) params.set('city', city);
+    }
+    const resp = await fetch(endpoint + '?' + params.toString());
+    const data = await resp.json();
+    renderSuggestList(data.suggestions || [], inputId, listEl);
+  } catch (e) {
+    hideList(listEl);
+  }
+}
+
+function renderSuggestList(list, inputId, listEl) {
+  suggestActiveIdx[inputId] = -1;
+  listEl.innerHTML = '';
+  if (list.length === 0) {
+    hideList(listEl);
+    return;
+  }
+  for (const item of list) {
+    const div = document.createElement('div');
+    div.className = 'suggest-item';
+    const nameDiv = document.createElement('div');
+    nameDiv.textContent = item.name;
+    div.appendChild(nameDiv);
+    // 辅助信息：poi 显示 address，district 显示 level（省/市/区）
+    const sub = item.address || item.level || '';
+    if (sub) {
+      const addrDiv = document.createElement('div');
+      addrDiv.className = 'addr';
+      addrDiv.textContent = sub;
+      div.appendChild(addrDiv);
+    }
+    div.onmousedown = () => chooseItem(div, document.getElementById(inputId), listEl);
+    listEl.appendChild(div);
+  }
+  listEl.classList.add('visible');
+}
+
+function chooseItem(itemEl, input, listEl) {
+  // 取第一项（名称行）的文本
+  input.value = itemEl.querySelector('div').textContent;
+  hideList(listEl);
+}
+
+function hideList(listEl) {
+  listEl.classList.remove('visible');
+  listEl.innerHTML = '';
+}
+
 // ── 启动 ──
 loadForm();
+for (const inputId of Object.keys(SUGGEST_FIELDS)) setupSuggest(inputId);
 document.getElementById('searchBtn').onclick = doSearch;
 </script>
 </body>

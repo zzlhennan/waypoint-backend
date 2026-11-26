@@ -1,5 +1,7 @@
 package com.zzl.waypointbackend.feignclient;
 
+import com.zzl.waypointbackend.feignclient.dto.AmapDistrictResponse;
+import com.zzl.waypointbackend.feignclient.dto.AmapInputtipsResponse;
 import com.zzl.waypointbackend.feignclient.dto.AmapV5PoiResponse;
 import com.zzl.waypointbackend.feignclient.dto.AmapV5RouteResponse;
 import org.springframework.cloud.openfeign.FeignClient;
@@ -25,6 +27,23 @@ public interface AmapClient {
     AmapV5PoiResponse searchText(@RequestParam("keywords") String keywords,
                                  @RequestParam("region") String region,
                                  @RequestParam("city_limit") Boolean cityLimit);
+
+    /**
+     * 输入提示 v3（地名联想用）。datatype=poi 返回 POI 列表。
+     * 与 place/text 区别：天生为联想设计，返回更短更准。
+     */
+    @GetMapping("/v3/assistant/inputtips")
+    AmapInputtipsResponse inputtips(@RequestParam("keywords") String keywords,
+                                     @RequestParam("datatype") String datatype,
+                                     @RequestParam(value = "region", required = false) String region);
+
+    /**
+     * 行政区划查询 v3（城市联想用）。支持模糊匹配（输"北"返回北京市/北海市）。
+     * subdistrict=0 只返回当前级，不返回下一级区县。
+     */
+    @GetMapping("/v3/config/district")
+    AmapDistrictResponse district(@RequestParam("keywords") String keywords,
+                                  @RequestParam(value = "subdistrict", defaultValue = "0") String subdistrict);
 
     /**
      * 驾车路线规划 2.0。必须传 showFields="polyline" 才返回坐标串。
