@@ -36,6 +36,8 @@ public class AmapV5PoiResponse {
 
         private String address;
         private String type;
+        /** POI 类型编码（如 "050501"）；用于二级分类聚合（取前 4 位） */
+        private String typecode;
         private String adname;
 
         /** 需 show_fields=business 才返回；tel 在嵌套 business 对象里 */

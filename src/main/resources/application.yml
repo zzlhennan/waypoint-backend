@@ -25,5 +25,5 @@ along:
   sample-interval-meters: 1000      # 沿路线采样间隔（调大以减少请求数，避免触发高德 QPS 限流）
   search-radius-meters: 500         # 采样点初始 POI 搜索半径
   search-radius-retry-meters: 1000  # 搜不到时的重试半径（仅整体空结果时补搜一轮）
-  max-detour-meters: 1000           # 防御性硬过滤：POI 离主路超过此值丢弃
+  max-detour-meters: 2000           # 防御性硬过滤：POI 离主路超过此值丢弃（v1 调大到 2km）
   top-n: 3                          # 返回结果数量

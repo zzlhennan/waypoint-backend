@@ -37,6 +37,7 @@ public class AlongServiceImpl implements AlongService {
     @Override
     public AlongResponse along(AlongQuery query) {
         // 入参覆盖配置：mode/topN/radius 不传时用默认值
+        // topN=0 表示「全部」（不截取）；不传用配置 along.top-n（默认 3）
         String mode = query.getMode() != null ? query.getMode() : "driving";
         int topN = query.getTopN() != null ? query.getTopN() : alongProperties.topN();
         int radius = query.getRadius() != null ? query.getRadius() : alongProperties.searchRadiusMeters();
@@ -78,18 +79,57 @@ public class AlongServiceImpl implements AlongService {
             c.setDistanceToRouteMeters(DetourCalculator.minDistanceMeters(parsePoint(c.getLocation()), route));
         }
 
-        // ⑥ 硬过滤：离主路超 maxDetourMeters 丢弃；⑦ 升序取 TopN
+        // ⑥ 硬过滤：离主路超 maxDetourMeters 丢弃
         List<PoiCandidate> filtered = candidates.values().stream()
                 .filter(c -> c.getDistanceToRouteMeters() <= alongProperties.maxDetourMeters())
-                .sorted((a, b) -> Double.compare(a.getDistanceToRouteMeters(), b.getDistanceToRouteMeters()))
-                .limit(topN)
                 .toList();
 
         if (filtered.isEmpty()) {
             throw BizException.notFound("沿途 " + alongProperties.maxDetourMeters() + " 米内没找到 " + query.getKeyword());
         }
 
-        return buildResponse(query, mode, filtered);
+        // ⑦ 统计二级分类 + 动态学习（硬过滤后、topN 截取前，统计基于全集不受 topN 影响）
+        // 仅在本次请求不带 category 过滤时才返回 categories（避免 tab 被过滤后的小集合冲掉）
+        List<AlongResponse.CategoryCount> categoryCounts = null;
+        if (query.getCategory() == null || query.getCategory().isBlank()) {
+            categoryCounts = countAndLearnCategories(filtered);
+        }
+
+        // ⑧ 按距离升序；topN 为 null（前端选"全部"）时不截取
+        List<PoiCandidate> sorted = filtered.stream()
+                .sorted((a, b) -> Double.compare(a.getDistanceToRouteMeters(), b.getDistanceToRouteMeters()))
+                .toList();
+        List<PoiCandidate> topList = topN > 0 ? sorted.stream().limit(topN).toList() : sorted;
+
+        return buildResponse(query, mode, topList, categoryCounts);
+    }
+
+    /**
+     * 统计硬过滤后候选的二级分类 count，同时把新分类 learn 进 DictUtils。
+     *
+     * <p>二级分类 = typecode 前 4 位（如 "050501" → "0505"）+ type 第二级中文（如 "餐饮服务;咖啡厅" → "咖啡厅"）。
+     * typecode/type 缺失的候选跳过统计（不影响 result 本身）。
+     *
+     * @return 按 count 降序的分类统计列表
+     */
+    private List<AlongResponse.CategoryCount> countAndLearnCategories(List<PoiCandidate> filtered) {
+        // label → count（LinkedHashMap 保持首次出现顺序，最后按 count 排序）
+        Map<String, Integer> countMap = new LinkedHashMap<>();
+        for (PoiCandidate c : filtered) {
+            String[] parts = c.getType() != null ? c.getType().split(";") : null;
+            String label = (parts != null && parts.length >= 2) ? parts[1].trim() : null;
+            String value = (c.getTypecode() != null && c.getTypecode().length() >= 4)
+                    ? c.getTypecode().substring(0, 4) : null;
+            if (label == null || label.isEmpty() || value == null) {
+                continue;
+            }
+            DictUtils.learn(DictUtils.TYPE_POI_CATEGORY, label, value);
+            countMap.merge(label, 1, Integer::sum);
+        }
+        return countMap.entrySet().stream()
+                .map(e -> new AlongResponse.CategoryCount(e.getKey(), e.getValue()))
+                .sorted((a, b) -> Integer.compare(b.getCount(), a.getCount()))
+                .toList();
     }
 
     /**
@@ -148,13 +188,15 @@ public class AlongServiceImpl implements AlongService {
             c.setAddress(p.getAddress());
             c.setLocation(p.getLocation());
             c.setType(p.getType());
+            c.setTypecode(p.getTypecode());
             c.setAdname(p.getAdname());
             c.setTel(p.getBusiness() != null ? p.getBusiness().getTel() : null);
             candidates.putIfAbsent(p.getId(), c);
         }
     }
 
-    private AlongResponse buildResponse(AlongQuery query, String mode, List<PoiCandidate> candidates) {
+    private AlongResponse buildResponse(AlongQuery query, String mode, List<PoiCandidate> candidates,
+                                        List<AlongResponse.CategoryCount> categoryCounts) {
         AlongResponse resp = new AlongResponse();
         AlongResponse.Query q = new AlongResponse.Query();
         q.setCity(query.getCity());
@@ -178,6 +220,7 @@ public class AlongServiceImpl implements AlongService {
             items.add(item);
         }
         resp.setResult(items);
+        resp.setCategories(categoryCounts);
         return resp;
     }
 

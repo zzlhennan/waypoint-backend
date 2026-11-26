@@ -15,7 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class DictUtils {
 
-    /** 字典类型：沿途 POI 分类（label=分类名如「咖啡厅」，value=高德 types 编码） */
+    /** 字典类型：沿途 POI 分类（label=分类名如「咖啡厅」，value=高德 typecode 前 4 位，如 "0505"） */
     public static final String TYPE_POI_CATEGORY = "poi_category";
 
     /** label → value 缓存；key: dictType，value: Map<label, value>（LinkedHashMap 保留注册顺序） */
@@ -25,15 +25,15 @@ public final class DictUtils {
     private static final Map<String, Map<String, String>> VALUE_TO_LABEL = new ConcurrentHashMap<>();
 
     static {
-        // 编码已从官方分类表（docs/Attachment02）核实
+        // 二级编码（typecode 前 4 位），与动态 learn 的口径一致；编码已从官方分类表（docs/Attachment02）核实
         register(TYPE_POI_CATEGORY, Map.of(
-                "咖啡厅", "050500",
-                "冷饮",   "050700",
-                "糕饼",   "050800",
-                "甜品",   "050900",
-                "茶艺",   "050600",
-                "加油站", "010100",
-                "便利店", "060200"
+                "咖啡厅", "0505",
+                "冷饮",   "0507",
+                "糕饼",   "0508",
+                "甜品",   "0509",
+                "茶艺",   "0506",
+                "加油站", "0101",
+                "便利店", "0602"
         ));
     }
 
@@ -50,8 +50,30 @@ public final class DictUtils {
         Map<String, String> labelMap = new LinkedHashMap<>(labelToValue);
         Map<String, String> valueMap = new LinkedHashMap<>();
         labelMap.forEach((label, value) -> valueMap.put(value, label));
-        LABEL_TO_VALUE.put(dictType, Collections.unmodifiableMap(labelMap));
-        VALUE_TO_LABEL.put(dictType, Collections.unmodifiableMap(valueMap));
+        LABEL_TO_VALUE.put(dictType, labelMap);
+        VALUE_TO_LABEL.put(dictType, valueMap);
+    }
+
+    /**
+     * 动态学习：把一组 label→value 写入双向缓存（已存在跳过，不覆盖）。
+     *
+     * <p>用于运行期从高德返回结果里提取新分类，避免静态种子永远不变。
+     * 并发安全：两个底层 map 都是 ConcurrentHashMap，内部 LinkedHashMap 仅在首次 computeIfAbsent 时创建。
+     */
+    public static void learn(String dictType, String label, String value) {
+        if (dictType == null || label == null || value == null) {
+            return;
+        }
+        String trimmedLabel = label.trim();
+        String trimmedValue = value.trim();
+        if (trimmedLabel.isEmpty() || trimmedValue.isEmpty()) {
+            return;
+        }
+        Map<String, String> labelMap = LABEL_TO_VALUE.computeIfAbsent(dictType, k -> new LinkedHashMap<>());
+        Map<String, String> valueMap = VALUE_TO_LABEL.computeIfAbsent(dictType, k -> new LinkedHashMap<>());
+        // 已存在则跳过（不覆盖已有映射，避免静态种子被结果里的脏数据改写）
+        labelMap.putIfAbsent(trimmedLabel, trimmedValue);
+        valueMap.putIfAbsent(trimmedValue, trimmedLabel);
     }
 
     /**

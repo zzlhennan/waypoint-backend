@@ -29,8 +29,11 @@ public class AlongQuery {
     @Pattern(regexp = "driving|walking|bicycling", message = "mode 只能是 driving/walking/bicycling")
     private String mode;
 
-    /** 返回数量上限（1-10）；不传用配置 along.top-n */
-    @Positive(message = "topN 必须为正数")
+    /**
+     * 返回数量上限；不传用配置 along.top-n（默认 3）。
+     * 特殊值：0 表示「全部」（不截取，返回硬过滤后的全部候选）。
+     */
+    @Min(value = 0, message = "topN 不能为负数；0 表示全部")
     private Integer topN;
 
     /** 采样点搜索半径（米）；不传用配置 along.search-radius-meters */
