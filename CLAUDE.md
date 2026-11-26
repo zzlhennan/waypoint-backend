@@ -91,9 +91,17 @@ src/main/java/com/zzl/waypointbackend/
 > 详细进度看 git log（一个功能一个 commit），本节**只维护"下一步"指针，不堆历史快照**。
 
 **MVP 已交付（2026-11）**：主干端到端通 + 收尾三件套（category/DictUtils/strategy 透传、edge case 400/404/502 全绿、README）+ QPS 优化（多 key 轮询 + sleep 200ms + 采样间隔 1000）。
-**前端已交付（2026-11）**：`src/main/resources/static/index.html` 单文件页面（访问 `http://localhost:22830/`）+ `GET /along/categories` 接口（DictUtils 重构为通用字典架构，双向缓存按 dictType 分组）。
+**前端已交付（2026-11）**：`src/main/resources/static/index.html` 单文件页面（访问 `http://localhost:22830/`）。
 **包结构已重构（2026-11）**：按业务域垂直分包（along/、category/），横切归 common/（dto/Point、exception/），字典归 utils/dict/。
-**下一期（待启动）**：等开发者本人连续用几天前端页面，收集反馈再迭代；或启动 Flutter 移动端（另起 06 文档）。
+**前端迭代 v1 已交付（2026-11）**：
+- 分类 tab 动态化（从搜索结果提取二级分类，DictUtils 加 learn() 动态学习）
+- 本地过滤 + 本地分页（后端返回全集，前端 filter + slice，tab count 与结果自洽）
+- 硬过滤距离 1km → 2km
+- topN 默认 0（不限制），"全部"选项
+- 默认选中驾车
+- 地名/城市联想（`/suggest/poi` + `/suggest/district`，后端代理高德 inputtips + district v3）
+
+**下一期（待启动）**：等开发者本人连续用几天，收集反馈再迭代；或启动 Flutter 移动端。
 
 整体路线（顺序固定；每一步都先走第 3 节讨论流程，我说开始才写）：
 1. ~~`AmapProperties` / `AlongProperties`（读配置 + fail-fast）~~ ✅
