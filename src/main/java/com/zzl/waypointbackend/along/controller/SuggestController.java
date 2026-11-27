@@ -34,13 +34,15 @@ public class SuggestController {
     /**
      * 地名联想：起点/终点输入框用。
      *
-     * @param keyword 输入框内容（如"奥森"）
+     * @param keywords 输入框内容（如"奥森"）
      * @param city    城市名（限定搜索范围）
      */
     @GetMapping("/poi")
-    public PoiSuggestResponse suggestPoi(@RequestParam String keyword,
+    public PoiSuggestResponse suggestPoi(@RequestParam String keywords,
                                           @RequestParam(required = false) String city) {
-        AmapInputtipsResponse resp = amapClient.inputtips(keyword, "poi", city);
+        // city 非空时限定城市范围（v3 参数名 citylimit，无下划线）
+        Boolean cityLimit = (city != null && !city.isBlank()) ? Boolean.TRUE : null;
+        AmapInputtipsResponse resp = amapClient.inputtips(keywords, "poi", city, cityLimit);
         if (resp == null || !"1".equals(resp.getStatus())) {
             throw BizException.upstream("地图服务暂时不可用");
         }
@@ -62,11 +64,11 @@ public class SuggestController {
     /**
      * 城市联想：城市输入框用。支持模糊匹配（输"北"返回北京市/北海市）。
      *
-     * @param keyword 输入框内容（如"北"）
+     * @param keywords 输入框内容（如"北"）
      */
     @GetMapping("/district")
-    public DistrictSuggestResponse suggestDistrict(@RequestParam String keyword) {
-        AmapDistrictResponse resp = amapClient.district(keyword, "0");
+    public DistrictSuggestResponse suggestDistrict(@RequestParam String keywords) {
+        AmapDistrictResponse resp = amapClient.district(keywords, "0");
         if (resp == null || !"1".equals(resp.getStatus())) {
             throw BizException.upstream("地图服务暂时不可用");
         }

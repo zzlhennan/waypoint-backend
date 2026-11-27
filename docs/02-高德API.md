@@ -143,8 +143,9 @@
 | 用途 | 地名联想弹窗（输"奥森"弹"奥森公园南门/奥森停车场"） |
 | URL | `GET https://restapi.amap.com/v3/assistant/inputtips` |
 | 官方文档 | https://lbs.amap.com/api/webservice/guide/api-advanced/inputtips |
-| 关键参数 | `keywords={输入}`、`datatype=poi`、`region={城市}`（可选，限定范围） |
+| 关键参数 | `keywords={输入}`、`datatype=poi`、`region={城市}`（可选）、`citylimit=true`（city 非空时严格限城市） |
 | datatype 可选值 | `all`（全部）、`poi`（POI）、`bus`（公交站）、`busline`（公交线路）——**注意：没有 district** |
+| ⚠️ v3 城市入参 | v3 用 **`citylimit`**（无下划线），≠v5 的 `city_limit`。参数名别抄错 |
 | 与 place/text 区别 | inputtips 天生为联想设计，返回更短更准；place/text 是精确搜索 |
 
 **返回字段**（对应 DTO `AmapInputtipsResponse`）：

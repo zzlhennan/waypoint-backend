@@ -282,7 +282,14 @@ async function doSearch() {
     } else {
       const msg = data.message || '请求失败';
       const icon = resp.status === 404 ? '🔍' : (resp.status === 502 ? '⚠️' : '❌');
-      renderError(`${icon} ${msg}`);
+      // detail 是系统错误的技术细节（后端填充），默认隐藏，点击小字展开
+      const detailHtml = data.detail
+        ? `<div class="err-detail" onclick="this.querySelector('.err-detail-body').style.display='block'">
+             <span style="font-size:12px;color:#999;cursor:pointer">▸ 查看详情</span>
+             <div class="err-detail-body" style="display:none;font-size:12px;color:#999;margin-top:4px;word-break:break-all">${data.detail}</div>
+           </div>`
+        : '';
+      renderError(`${icon} ${msg}${detailHtml}`);
     }
   } catch (e) {
     renderError('⚠️ 网络不通，检查一下？');
@@ -408,7 +415,7 @@ function setupSuggest(inputId) {
 
 async function fetchSuggest(inputId, kw, endpoint, listEl) {
   try {
-    const params = new URLSearchParams({ keyword: kw });
+    const params = new URLSearchParams({ keywords: kw });
     // 地名联想带当前城市框的值做限定
     if (endpoint === '/suggest/poi') {
       const city = document.getElementById('city').value.trim();

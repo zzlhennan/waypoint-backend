@@ -35,7 +35,8 @@ public interface AmapClient {
     @GetMapping("/v3/assistant/inputtips")
     AmapInputtipsResponse inputtips(@RequestParam("keywords") String keywords,
                                      @RequestParam("datatype") String datatype,
-                                     @RequestParam(value = "region", required = false) String region);
+                                     @RequestParam(value = "city", required = false) String city,
+                                     @RequestParam(value = "citylimit", required = false) Boolean cityLimit);
 
     /**
      * 行政区划查询 v3（城市联想用）。支持模糊匹配（输"北"返回北京市/北海市）。
